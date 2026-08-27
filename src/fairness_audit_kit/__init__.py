@@ -23,6 +23,12 @@ from fairness_audit_kit.generator import (
     generate_multiple_biased_datasets,
 )
 
+from fairness_audit_kit.report import (
+    render_metrics_report,
+    render_optimization_report,
+    render_comparison_report,
+)
+
 __all__ = [
     "FairnessMetrics",
     "compute_fairness_metrics",
@@ -33,4 +39,7 @@ __all__ = [
     "BiasedDataset",
     "generate_biased_dataset",
     "generate_multiple_biased_datasets",
+    "render_metrics_report",
+    "render_optimization_report",
+    "render_comparison_report",
 ]
