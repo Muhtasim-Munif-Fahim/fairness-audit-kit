@@ -17,6 +17,12 @@ from fairness_audit_kit.optimizer import (
     find_threshold_for_metric,
 )
 
+from fairness_audit_kit.generator import (
+    BiasedDataset,
+    generate_biased_dataset,
+    generate_multiple_biased_datasets,
+)
+
 __all__ = [
     "FairnessMetrics",
     "compute_fairness_metrics",
@@ -24,4 +30,7 @@ __all__ = [
     "OptimizationResult",
     "optimize_thresholds",
     "find_threshold_for_metric",
+    "BiasedDataset",
+    "generate_biased_dataset",
+    "generate_multiple_biased_datasets",
 ]
