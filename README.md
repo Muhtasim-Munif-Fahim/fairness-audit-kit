@@ -5,6 +5,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 ## Features
 
 - **Group Fairness Metrics**: Demographic Parity Difference, Equal Opportunity Difference, Equalized Odds Difference, Disparate Impact Ratio, Calibration by Group
+- **Intersectional Subgroup Fairness**: Evaluate the same group metrics on the cross of two sensitive attributes and surface the worst-off intersection
 - **Confusion Matrices by Group**: Per-group confusion matrices with configurable thresholds
 - **Synthetic Biased Dataset Generator**: Controlled label flip, feature bias, and correlation bias injection
 - **Threshold Optimization**: Grid search over thresholds per group for fairness constraints (demographic parity, equal opportunity, equalized odds)
@@ -34,6 +35,7 @@ python examples/run_demo.py
 fairness-audit generate --n-samples 1000 --bias-type label_flip --output data.csv
 fairness-audit predict --model-path model.pkl --data-path data.csv --output preds.csv
 fairness-audit evaluate --preds-path preds.csv --data-path data.csv --group-col sensitive_attr --output report.md
+fairness-audit evaluate --data preds.csv --group-col gender --group-col-2 race --output intersectional_report.md
 fairness-audit optimize --data-path preds.csv --score-col y_score --constraint equalized_odds --output opt_report.md
 `
 
@@ -43,6 +45,7 @@ fairness-audit optimize --data-path preds.csv --score-col y_score --constraint e
 src/fairness_audit_kit/
 ├── __init__.py          # Main exports
 ├── metrics.py           # Group fairness metrics
+├── intersectional.py    # Intersectional subgroup fairness
 ├── optimizer.py         # Threshold optimization
 ├── generator.py         # Synthetic biased dataset generator
 ├── report.py            # Markdown report rendering
@@ -85,6 +88,34 @@ print(f"Equalized Odds Diff: {metrics.equalized_odds_difference:.4f}")
 print(f"Disparate Impact Ratio: {metrics.disparate_impact_ratio:.4f}")
 print(f"Calibration by group: {metrics.calibration_by_group}")
 `
+
+### Intersectional Subgroup Fairness
+
+Evaluate the same group metrics on the Cartesian product of two sensitive attributes. This catches disparities that disappear when each attribute is audited on its own.
+
+```python
+from fairness_audit_kit import (
+    compute_intersectional_metrics,
+    render_intersectional_report,
+)
+
+result = compute_intersectional_metrics(y_true, y_pred, gender, race)
+
+print(f"Intersections: {result.n_intersections}")
+print(f"Demographic Parity Diff: {result.metrics.demographic_parity_difference:.4f}")
+print(f"Equal Opportunity Diff: {result.metrics.equal_opportunity_difference:.4f}")
+print(f"Equalized Odds Diff: {result.metrics.equalized_odds_difference:.4f}")
+print(f"Disparate Impact Ratio: {result.metrics.disparate_impact_ratio:.4f}")
+print(f"Worst intersection: {result.worst_intersection.group}")
+print(f"  positive rate: {result.worst_intersection.positive_rate:.4f}")
+print(f"  gap from best: {result.worst_intersection.gap_from_best:.4f}")
+
+report = render_intersectional_report(
+    result, groups_a_name="gender", groups_b_name="race"
+)
+```
+
+Intersection labels are `{group_a}/{group_b}` (override with `separator=`). The worst intersection is the subgroup with the lowest positive prediction rate by default, or the lowest TPR when `worst_by="tpr"`.
 
 ### Optimize Thresholds
 
@@ -168,6 +199,10 @@ Options:
   --target-col STR        True label column (default: target)
   --pred-col STR          Prediction column (default: y_pred)
   --group-col STR         Group column (default: sensitive_attr)
+  --group-col-2 STR       Second sensitive attribute. When set, also evaluate
+                          intersectional fairness on the cross of --group-col
+                          and this column, and include the worst intersection
+                          in the report
   --title STR             Report title (default: "Fairness Evaluation Report")
   --output PATH           Output report path (required)
 `
@@ -211,6 +246,8 @@ _features |
 | Equalized Odds Difference | Max of TPR diff and FPR diff across groups | 0 |
 | Disparate Impact Ratio | Min positive rate / max positive rate | 1.0 |
 | Calibration by Group | P(y=1|y_hat=1) / P(y=1) per group | 1.0 |
+| Intersectional metrics | Same four group metrics on the cross of two attributes | same as above |
+| Worst Intersection | Intersection with the lowest positive rate (or TPR) | n/a |
 
 ## Requirements
 

@@ -12,8 +12,10 @@ from pathlib import Path
 from fairness_audit_kit import (
     generate_biased_dataset,
     compute_fairness_metrics,
+    compute_intersectional_metrics,
     optimize_thresholds,
     render_metrics_report,
+    render_intersectional_report,
     render_optimization_report,
 )
 
@@ -87,6 +89,23 @@ def cmd_evaluate(args):
     
     metrics = compute_fairness_metrics(y_true, y_pred, groups)
     report = render_metrics_report(metrics, args.title)
+
+    group_col_2 = getattr(args, "group_col_2", None)
+    if group_col_2:
+        groups_b = df[group_col_2].values
+        inter = compute_intersectional_metrics(y_true, y_pred, groups, groups_b)
+        inter_report = render_intersectional_report(
+            inter,
+            title="Intersectional Fairness Report",
+            groups_a_name=args.group_col,
+            groups_b_name=group_col_2,
+        )
+        report = report.rstrip() + "\n\n---\n\n" + inter_report
+        print(
+            f"Worst intersection: {inter.worst_intersection.group} "
+            f"(n={inter.worst_intersection.n_samples}, "
+            f"positive_rate={inter.worst_intersection.positive_rate:.4f})"
+        )
     
     with open(args.output, "w") as f:
         f.write(report)
@@ -160,6 +179,13 @@ def main():
     eval_parser.add_argument("--target-col", type=str, default="target", help="True label column")
     eval_parser.add_argument("--pred-col", type=str, default="y_pred", help="Prediction column")
     eval_parser.add_argument("--group-col", type=str, default="sensitive_attr", help="Group column")
+    eval_parser.add_argument(
+        "--group-col-2",
+        type=str,
+        default=None,
+        help="Second sensitive attribute column. When set, also evaluate "
+             "intersectional fairness on the cross of --group-col and this column.",
+    )
     eval_parser.add_argument("--title", type=str, default="Fairness Evaluation Report", help="Report title")
     eval_parser.add_argument("--output", type=str, required=True, help="Output report path")
     eval_parser.set_defaults(func=cmd_evaluate)
