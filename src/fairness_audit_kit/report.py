@@ -6,6 +6,7 @@ from typing import Dict, List, Any
 from fairness_audit_kit.metrics import FairnessMetrics
 from fairness_audit_kit.optimizer import OptimizationResult
 from fairness_audit_kit.intersectional import IntersectionalFairnessResult
+from fairness_audit_kit.theil import GeneralizedEntropyResult
 
 
 def render_metrics_report(metrics: FairnessMetrics, title: str = "Fairness Evaluation Report") -> str:
@@ -60,6 +61,80 @@ def render_metrics_report(metrics: FairnessMetrics, title: str = "Fairness Evalu
         "",
     ])
     
+    return "\n".join(lines)
+
+
+def render_theil_report(
+    result: GeneralizedEntropyResult,
+    title: str = "Theil / Generalized Entropy Report",
+) -> str:
+    """Render Theil / generalized entropy inequality as Markdown."""
+    alpha = result.alpha
+    if abs(alpha - 1.0) < 1e-12:
+        index_name = "Theil index (generalized entropy with alpha = 1)"
+    elif abs(alpha) < 1e-12:
+        index_name = "mean log deviation (generalized entropy with alpha = 0)"
+    elif abs(alpha - 2.0) < 1e-12:
+        index_name = "half the squared coefficient of variation (alpha = 2)"
+    else:
+        index_name = f"generalized entropy index with alpha = {alpha:g}"
+
+    def _breakdown_lines(name: str, breakdown) -> List[str]:
+        return [
+            f"## {name}",
+            "",
+            f"- **Overall**: {breakdown.overall:.4f}",
+            f"- **Between-Group**: {breakdown.between_group:.4f}",
+            f"- **Within-Group**: {breakdown.within_group:.4f}",
+            "",
+        ]
+
+    lines = [
+        f"# {title}",
+        "",
+        f"Inequality measured with the **{index_name}**. "
+        f"{result.n_groups} groups, {result.n_samples} samples.",
+        "",
+        f"- **Mean Benefit**: {result.mean_benefit:.4f}",
+        f"- **Mean Error Rate**: {result.mean_error_rate:.4f}",
+        "",
+    ]
+    lines.extend(_breakdown_lines("Benefit Inequality", result.benefit))
+    lines.extend(_breakdown_lines("Error Inequality", result.error))
+    lines.extend([
+        "## Rates by Group",
+        "",
+        "| Group | N | Mean Benefit | Error Rate |",
+        "|-------|---|--------------|------------|",
+    ])
+    for group in sorted(result.group_size.keys(), key=str):
+        cell = str(group).replace("|", "\\|")
+        lines.append(
+            f"| {cell} | {result.group_size[group]} | "
+            f"{result.group_mean_benefit[group]:.4f} | "
+            f"{result.group_error_rate[group]:.4f} |"
+        )
+
+    lines.extend([
+        "",
+        "## Interpretation",
+        "",
+        "- **Theil / generalized entropy**: 0 means perfect equality. Larger values "
+        "mean more inequality in the chosen outcome.",
+        "- **Benefit**: `b_i = 1 + 1[y_hat = favorable] - 1[y = favorable]` "
+        "(Speicher et al. / AIF360). Correct predictions score 1, false positives 2, "
+        "false negatives 0.",
+        "- **Error**: 1 if the prediction is wrong, 0 otherwise. Between-group error "
+        "inequality is the Theil/GEI of group error rates (size-weighted).",
+        "- **Between-Group**: inequality after giving every person their group's mean "
+        "outcome. This is the group-fairness term.",
+        "- **Within-Group**: residual individual inequality inside groups. "
+        "Overall = between-group + within-group.",
+        "- **alpha**: 1 = Theil index (default), 0 = mean log deviation, "
+        "2 = half the squared coefficient of variation.",
+        "",
+    ])
+
     return "\n".join(lines)
 
 
@@ -246,6 +321,7 @@ def render_comparison_report(
 __all__ = [
     "render_metrics_report",
     "render_intersectional_report",
+    "render_theil_report",
     "render_optimization_report",
     "render_comparison_report",
 ]

@@ -13,9 +13,11 @@ from fairness_audit_kit import (
     generate_biased_dataset,
     compute_fairness_metrics,
     compute_intersectional_metrics,
+    compute_generalized_entropy,
     optimize_thresholds,
     render_metrics_report,
     render_intersectional_report,
+    render_theil_report,
     render_optimization_report,
 )
 
@@ -89,6 +91,18 @@ def cmd_evaluate(args):
     
     metrics = compute_fairness_metrics(y_true, y_pred, groups)
     report = render_metrics_report(metrics, args.title)
+
+    entropy_alpha = getattr(args, "entropy_alpha", 1.0)
+    entropy = compute_generalized_entropy(
+        y_true, y_pred, groups, alpha=entropy_alpha
+    )
+    theil_report = render_theil_report(entropy)
+    report = report.rstrip() + "\n\n---\n\n" + theil_report
+    print(
+        f"Theil/GEI (alpha={entropy.alpha:g}) benefit between-group="
+        f"{entropy.benefit.between_group:.4f}, "
+        f"error between-group={entropy.error.between_group:.4f}"
+    )
 
     group_col_2 = getattr(args, "group_col_2", None)
     if group_col_2:
@@ -185,6 +199,13 @@ def main():
         default=None,
         help="Second sensitive attribute column. When set, also evaluate "
              "intersectional fairness on the cross of --group-col and this column.",
+    )
+    eval_parser.add_argument(
+        "--entropy-alpha",
+        type=float,
+        default=1.0,
+        help="Generalized entropy alpha for Theil/GEI inequality "
+             "(1=Theil index, 0=mean log deviation, 2=half squared CV).",
     )
     eval_parser.add_argument("--title", type=str, default="Fairness Evaluation Report", help="Report title")
     eval_parser.add_argument("--output", type=str, required=True, help="Output report path")
