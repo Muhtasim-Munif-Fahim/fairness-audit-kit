@@ -12,8 +12,10 @@ import os
 from fairness_audit_kit import (
     generate_biased_dataset,
     compute_fairness_metrics,
+    compute_theil_metrics,
     optimize_thresholds,
     render_metrics_report,
+    render_theil_report,
     render_optimization_report,
 )
 
@@ -63,6 +65,11 @@ def run_demo():
     metrics = compute_fairness_metrics(y_test, y_pred, g_test)
     report = render_metrics_report(metrics, "Fairness Evaluation (Default Threshold)")
     print(report)
+
+    print("\n3b. Theil / generalized entropy inequality...")
+    theil = compute_theil_metrics(y_test, y_pred, g_test)
+    theil_report = render_theil_report(theil)
+    print(theil_report)
     
     # 4. Optimize thresholds for equalized odds
     print("\n4. Optimizing thresholds for equalized odds constraint...")
@@ -101,6 +108,8 @@ def run_demo():
         ("Equal Opportunity Diff", metrics.equal_opportunity_difference, metrics_opt.equal_opportunity_difference),
         ("Equalized Odds Diff", metrics.equalized_odds_difference, metrics_opt.equalized_odds_difference),
         ("Disparate Impact Ratio", metrics.disparate_impact_ratio, metrics_opt.disparate_impact_ratio),
+        ("Theil benefit between-group", theil.benefit.between_group,
+         compute_theil_metrics(y_test, y_pred_opt, g_test).benefit.between_group),
     ]
     
     for name, default_val, opt_val in comparisons:

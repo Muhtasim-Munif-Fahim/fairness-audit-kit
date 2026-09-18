@@ -5,6 +5,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 ## Features
 
 - **Group Fairness Metrics**: Demographic Parity Difference, Equal Opportunity Difference, Equalized Odds Difference, Disparate Impact Ratio, Calibration by Group
+- **Theil / Generalized Entropy**: Inequality of classification benefit or error across groups, with between/within decomposition (Theil is alpha=1)
 - **Intersectional Subgroup Fairness**: Evaluate the same group metrics on the cross of two sensitive attributes and surface the worst-off intersection
 - **Confusion Matrices by Group**: Per-group confusion matrices with configurable thresholds
 - **Synthetic Biased Dataset Generator**: Controlled label flip, feature bias, and correlation bias injection
@@ -45,6 +46,7 @@ fairness-audit optimize --data-path preds.csv --score-col y_score --constraint e
 src/fairness_audit_kit/
 ├── __init__.py          # Main exports
 ├── metrics.py           # Group fairness metrics
+├── theil.py             # Theil index / generalized entropy inequality
 ├── intersectional.py    # Intersectional subgroup fairness
 ├── optimizer.py         # Threshold optimization
 ├── generator.py         # Synthetic biased dataset generator
@@ -116,6 +118,32 @@ report = render_intersectional_report(
 ```
 
 Intersection labels are `{group_a}/{group_b}` (override with `separator=`). The worst intersection is the subgroup with the lowest positive prediction rate by default, or the lowest TPR when `worst_by="tpr"`.
+
+### Theil Index / Generalized Entropy
+
+Measure inequality of **benefit** (Speicher et al. / AIF360: `b_i = 1 + 1[y_hat=favorable] - 1[y=favorable]`) or **error** (0/1 misclassification) across individuals and groups. The index decomposes into a between-group term (each person is assigned their group's mean outcome) and a within-group residual. Default `alpha=1` is the Theil index; `alpha=2` is half the squared coefficient of variation.
+
+```python
+from fairness_audit_kit import (
+    compute_theil_metrics,
+    compute_generalized_entropy,
+    render_theil_report,
+    theil_index,
+)
+
+result = compute_theil_metrics(y_true, y_pred, groups)
+print(f"Benefit Theil overall: {result.benefit.overall:.4f}")
+print(f"Benefit Theil between-group: {result.benefit.between_group:.4f}")
+print(f"Error Theil between-group: {result.error.between_group:.4f}")
+print(f"Group error rates: {result.group_error_rate}")
+
+gei = compute_generalized_entropy(y_true, y_pred, groups, alpha=2.0)
+print(f"GEI(alpha=2) benefit between-group: {gei.benefit.between_group:.4f}")
+
+report = render_theil_report(result)
+```
+
+`theil_index(values)` and `generalized_entropy_index(values, alpha=...)` also work on any non-negative array (for example a vector of group rates).
 
 ### Optimize Thresholds
 
@@ -203,6 +231,10 @@ Options:
                           intersectional fairness on the cross of --group-col
                           and this column, and include the worst intersection
                           in the report
+  --entropy-alpha FLOAT   Generalized entropy alpha (default: 1 = Theil).
+                          0 = mean log deviation, 2 = half squared CV.
+                          The evaluate report always includes benefit and
+                          error inequality with between/within decomposition
   --title STR             Report title (default: "Fairness Evaluation Report")
   --output PATH           Output report path (required)
 `
@@ -246,6 +278,9 @@ _features |
 | Equalized Odds Difference | Max of TPR diff and FPR diff across groups | 0 |
 | Disparate Impact Ratio | Min positive rate / max positive rate | 1.0 |
 | Calibration by Group | P(y=1|y_hat=1) / P(y=1) per group | 1.0 |
+| Theil index | Generalized entropy of benefit or error with alpha=1 | 0 |
+| Generalized entropy (alpha) | Inequality of benefit or error; alpha=2 is half squared CV | 0 |
+| Between-group Theil/GEI | Theil/GEI after assigning each person their group mean | 0 |
 | Intersectional metrics | Same four group metrics on the cross of two attributes | same as above |
 | Worst Intersection | Intersection with the lowest positive rate (or TPR) | n/a |
 

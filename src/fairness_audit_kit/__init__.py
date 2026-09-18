@@ -18,6 +18,17 @@ from fairness_audit_kit.intersectional import (
     compute_intersectional_metrics,
 )
 
+from fairness_audit_kit.theil import (
+    EntropyBreakdown,
+    GeneralizedEntropyResult,
+    classification_benefit,
+    classification_error,
+    generalized_entropy_index,
+    theil_index,
+    compute_generalized_entropy,
+    compute_theil_metrics,
+)
+
 from fairness_audit_kit.optimizer import (
     OptimizationResult,
     optimize_thresholds,
@@ -33,6 +44,7 @@ from fairness_audit_kit.generator import (
 from fairness_audit_kit.report import (
     render_metrics_report,
     render_intersectional_report,
+    render_theil_report,
     render_optimization_report,
     render_comparison_report,
 )
@@ -45,6 +57,14 @@ __all__ = [
     "WorstIntersection",
     "make_intersectional_groups",
     "compute_intersectional_metrics",
+    "EntropyBreakdown",
+    "GeneralizedEntropyResult",
+    "classification_benefit",
+    "classification_error",
+    "generalized_entropy_index",
+    "theil_index",
+    "compute_generalized_entropy",
+    "compute_theil_metrics",
     "OptimizationResult",
     "optimize_thresholds",
     "find_threshold_for_metric",
@@ -53,6 +73,7 @@ __all__ = [
     "generate_multiple_biased_datasets",
     "render_metrics_report",
     "render_intersectional_report",
+    "render_theil_report",
     "render_optimization_report",
     "render_comparison_report",
 ]
