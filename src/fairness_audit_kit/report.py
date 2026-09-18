@@ -5,6 +5,7 @@ Markdown report renderer.
 from typing import Dict, List, Any
 from fairness_audit_kit.metrics import FairnessMetrics
 from fairness_audit_kit.optimizer import OptimizationResult
+from fairness_audit_kit.intersectional import IntersectionalFairnessResult
 
 
 def render_metrics_report(metrics: FairnessMetrics, title: str = "Fairness Evaluation Report") -> str:
@@ -59,6 +60,97 @@ def render_metrics_report(metrics: FairnessMetrics, title: str = "Fairness Evalu
         "",
     ])
     
+    return "\n".join(lines)
+
+
+def render_intersectional_report(
+    result: IntersectionalFairnessResult,
+    title: str = "Intersectional Fairness Report",
+    groups_a_name: str = "group_a",
+    groups_b_name: str = "group_b",
+) -> str:
+    """Render intersectional fairness metrics, including the worst intersection."""
+    worst = result.worst_intersection
+    criterion_label = {
+        "positive_rate": "positive prediction rate",
+        "tpr": "true positive rate",
+    }.get(worst.criterion, worst.criterion)
+
+    lines = [
+        f"# {title}",
+        "",
+        f"Evaluated on the cross of `{groups_a_name}` × `{groups_b_name}` "
+        f"({result.n_intersections} intersections).",
+        "",
+        "## Worst Intersection",
+        "",
+        f"- **Group**: `{worst.group}`",
+        f"- **Samples**: {worst.n_samples}",
+        f"- **Positive Rate**: {worst.positive_rate:.4f}",
+        f"- **True Positive Rate**: {worst.tpr:.4f}",
+        f"- **False Positive Rate**: {worst.fpr:.4f}",
+        f"- **Criterion**: lowest {criterion_label}",
+        f"- **Gap from Best Intersection**: {worst.gap_from_best:.4f}",
+        "",
+        "The worst intersection is the subgroup with the lowest value of the "
+        "chosen criterion (default: positive prediction rate).",
+        "",
+        "## Intersectional Metrics",
+        "",
+        f"- **Demographic Parity Difference**: {result.metrics.demographic_parity_difference:.4f}",
+        f"- **Equal Opportunity Difference**: {result.metrics.equal_opportunity_difference:.4f}",
+        f"- **Equalized Odds Difference**: {result.metrics.equalized_odds_difference:.4f}",
+        f"- **Disparate Impact Ratio**: {result.metrics.disparate_impact_ratio:.4f}",
+        "",
+        "## Rates by Intersection",
+        "",
+        "| Intersection | N | Positive Rate | TPR | FPR | Precision | Calibration |",
+        "|--------------|---|---------------|-----|-----|-----------|-------------|",
+    ]
+
+    for group in result.intersection_labels:
+        rates = result.group_rates[group]
+        cell = str(group).replace("|", "\\|")
+        lines.append(
+            f"| {cell} | {rates['total']} | {rates['positive_rate']:.4f} | "
+            f"{rates['tpr']:.4f} | {rates['fpr']:.4f} | {rates['precision']:.4f} | "
+            f"{rates['calibration']:.4f} |"
+        )
+
+    lines.extend([
+        "",
+        "## Confusion Matrices by Intersection",
+        "",
+    ])
+
+    for group in result.intersection_labels:
+        cm = result.metrics.confusion_matrices[group]
+        lines.extend([
+            f"### Intersection: {group}",
+            "",
+            "| | Predicted 0 | Predicted 1 |",
+            "|---|---|---|",
+            f"| Actual 0 | {cm['tn']} | {cm['fp']} |",
+            f"| Actual 1 | {cm['fn']} | {cm['tp']} |",
+            "",
+        ])
+
+    lines.extend([
+        "## Interpretation",
+        "",
+        "- Intersectional metrics apply the same group fairness definitions "
+        "to the Cartesian product of two sensitive attributes.",
+        "- A small gap on each attribute separately can hide a large gap at "
+        "an intersection (fairness gerrymandering).",
+        "- **Worst Intersection**: subgroup with the lowest positive rate "
+        "(or TPR if `worst_by='tpr'`). Gap from best is max − min on that criterion.",
+        "- **Demographic Parity Difference**: max − min positive prediction rate across intersections. 0 = perfect parity.",
+        "- **Equal Opportunity Difference**: max − min true positive rate across intersections. 0 = equal opportunity.",
+        "- **Equalized Odds Difference**: max of TPR and FPR differences across intersections. 0 = equalized odds.",
+        "- **Disparate Impact Ratio**: min positive rate / max positive rate across intersections. 1.0 = no disparate impact.",
+        "",
+    ])
+
     return "\n".join(lines)
 
 
@@ -153,6 +245,7 @@ def render_comparison_report(
 
 __all__ = [
     "render_metrics_report",
+    "render_intersectional_report",
     "render_optimization_report",
     "render_comparison_report",
 ]
