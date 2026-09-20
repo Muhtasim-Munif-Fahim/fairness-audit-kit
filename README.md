@@ -6,6 +6,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 
 - **Group Fairness Metrics**: Demographic Parity Difference, Equal Opportunity Difference, Equalized Odds Difference, Disparate Impact Ratio, Calibration by Group
 - **Theil / Generalized Entropy**: Inequality of classification benefit or error across groups, with between/within decomposition (Theil is alpha=1)
+- **Reliability / Calibration by Group**: Expected Calibration Error (ECE) overall and per sensitive group, plus binned reliability diagram tables
 - **Intersectional Subgroup Fairness**: Evaluate the same group metrics on the cross of two sensitive attributes and surface the worst-off intersection
 - **Confusion Matrices by Group**: Per-group confusion matrices with configurable thresholds
 - **Synthetic Biased Dataset Generator**: Controlled label flip, feature bias, and correlation bias injection
@@ -47,6 +48,7 @@ src/fairness_audit_kit/
 ├── __init__.py          # Main exports
 ├── metrics.py           # Group fairness metrics
 ├── theil.py             # Theil index / generalized entropy inequality
+├── calibration.py       # ECE and reliability diagram data by group
 ├── intersectional.py    # Intersectional subgroup fairness
 ├── optimizer.py         # Threshold optimization
 ├── generator.py         # Synthetic biased dataset generator
@@ -145,6 +147,41 @@ report = render_theil_report(result)
 
 `theil_index(values)` and `generalized_entropy_index(values, alpha=...)` also work on any non-negative array (for example a vector of group rates).
 
+### Reliability / Expected Calibration Error
+
+Measure how well predicted probabilities match observed frequencies, overall and per sensitive group. Scores are binned (default: 10 equal-width bins on `[0, 1]`). Each bin reports mean confidence, observed positive rate, and the gap. **ECE** is the sample-weighted average of those gaps; **MCE** is the largest single-bin gap. `ece_difference` is max group ECE minus min group ECE.
+
+This is distinct from the hard-label `calibration_by_group` ratio in `compute_fairness_metrics` (`P(y=1) / P(y_hat=1)`). ECE needs predicted probabilities.
+
+```python
+from fairness_audit_kit import (
+    compute_calibration_metrics,
+    expected_calibration_error,
+    compute_reliability_bins,
+    render_calibration_report,
+)
+
+result = compute_calibration_metrics(y_true, y_scores, groups)
+print(f"Overall ECE: {result.ece:.4f}")
+print(f"Overall MCE: {result.mce:.4f}")
+print(f"ECE by group: {result.group_ece}")
+print(f"ECE difference: {result.ece_difference:.4f}")
+
+for row in result.reliability_bins:
+    print(
+        f"[{row.lower:.2f}, {row.upper:.2f}] n={row.n_samples} "
+        f"conf={row.mean_confidence:.3f} obs={row.observed_positive_rate:.3f} "
+        f"gap={row.gap:.3f}"
+    )
+
+ece = expected_calibration_error(y_true, y_scores, n_bins=15, strategy="quantile")
+bins = compute_reliability_bins(y_true, y_scores, n_bins=15, strategy="quantile")
+
+report = render_calibration_report(result)
+```
+
+`fairness-audit evaluate` appends this section when the CSV has a score column (default `y_score`).
+
 ### Optimize Thresholds
 
 `python
@@ -235,6 +272,12 @@ Options:
                           0 = mean log deviation, 2 = half squared CV.
                           The evaluate report always includes benefit and
                           error inequality with between/within decomposition
+  --score-col STR         Predicted probability column (default: y_score).
+                          When present, the report includes ECE and a
+                          reliability diagram table overall and per group
+  --calibration-bins INT  Number of ECE / reliability bins (default: 10)
+  --calibration-strategy  uniform (equal-width, default) or quantile
+                          (equal-mass)
   --title STR             Report title (default: "Fairness Evaluation Report")
   --output PATH           Output report path (required)
 `
@@ -281,6 +324,10 @@ _features |
 | Theil index | Generalized entropy of benefit or error with alpha=1 | 0 |
 | Generalized entropy (alpha) | Inequality of benefit or error; alpha=2 is half squared CV | 0 |
 | Between-group Theil/GEI | Theil/GEI after assigning each person their group mean | 0 |
+| ECE | Sample-weighted |observed rate − mean confidence| across probability bins | 0 |
+| ECE by group | ECE computed on each sensitive group | 0 |
+| ECE difference | Max group ECE − min group ECE | 0 |
+| Reliability diagram | Per-bin mean confidence, observed rate, count, and gap | gap 0 |
 | Intersectional metrics | Same four group metrics on the cross of two attributes | same as above |
 | Worst Intersection | Intersection with the lowest positive rate (or TPR) | n/a |
 

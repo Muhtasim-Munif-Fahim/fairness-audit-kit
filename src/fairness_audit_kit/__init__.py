@@ -29,6 +29,15 @@ from fairness_audit_kit.theil import (
     compute_theil_metrics,
 )
 
+from fairness_audit_kit.calibration import (
+    ReliabilityBin,
+    CalibrationResult,
+    compute_reliability_bins,
+    expected_calibration_error,
+    maximum_calibration_error,
+    compute_calibration_metrics,
+)
+
 from fairness_audit_kit.optimizer import (
     OptimizationResult,
     optimize_thresholds,
@@ -45,6 +54,7 @@ from fairness_audit_kit.report import (
     render_metrics_report,
     render_intersectional_report,
     render_theil_report,
+    render_calibration_report,
     render_optimization_report,
     render_comparison_report,
 )
@@ -65,6 +75,12 @@ __all__ = [
     "theil_index",
     "compute_generalized_entropy",
     "compute_theil_metrics",
+    "ReliabilityBin",
+    "CalibrationResult",
+    "compute_reliability_bins",
+    "expected_calibration_error",
+    "maximum_calibration_error",
+    "compute_calibration_metrics",
     "OptimizationResult",
     "optimize_thresholds",
     "find_threshold_for_metric",
@@ -74,6 +90,7 @@ __all__ = [
     "render_metrics_report",
     "render_intersectional_report",
     "render_theil_report",
+    "render_calibration_report",
     "render_optimization_report",
     "render_comparison_report",
 ]
