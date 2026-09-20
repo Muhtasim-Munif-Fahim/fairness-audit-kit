@@ -13,9 +13,11 @@ from fairness_audit_kit import (
     generate_biased_dataset,
     compute_fairness_metrics,
     compute_theil_metrics,
+    compute_calibration_metrics,
     optimize_thresholds,
     render_metrics_report,
     render_theil_report,
+    render_calibration_report,
     render_optimization_report,
 )
 
@@ -70,6 +72,11 @@ def run_demo():
     theil = compute_theil_metrics(y_test, y_pred, g_test)
     theil_report = render_theil_report(theil)
     print(theil_report)
+
+    print("\n3c. Reliability / expected calibration error...")
+    calibration = compute_calibration_metrics(y_test, y_scores, g_test)
+    cal_report = render_calibration_report(calibration)
+    print(cal_report)
     
     # 4. Optimize thresholds for equalized odds
     print("\n4. Optimizing thresholds for equalized odds constraint...")

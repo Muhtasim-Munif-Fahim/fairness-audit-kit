@@ -14,10 +14,12 @@ from fairness_audit_kit import (
     compute_fairness_metrics,
     compute_intersectional_metrics,
     compute_generalized_entropy,
+    compute_calibration_metrics,
     optimize_thresholds,
     render_metrics_report,
     render_intersectional_report,
     render_theil_report,
+    render_calibration_report,
     render_optimization_report,
 )
 
@@ -103,6 +105,22 @@ def cmd_evaluate(args):
         f"{entropy.benefit.between_group:.4f}, "
         f"error between-group={entropy.error.between_group:.4f}"
     )
+
+    score_col = getattr(args, "score_col", "y_score")
+    if score_col and score_col in df.columns:
+        y_scores = df[score_col].values
+        n_bins = getattr(args, "calibration_bins", 10)
+        strategy = getattr(args, "calibration_strategy", "uniform")
+        calibration = compute_calibration_metrics(
+            y_true, y_scores, groups, n_bins=n_bins, strategy=strategy
+        )
+        cal_report = render_calibration_report(calibration)
+        report = report.rstrip() + "\n\n---\n\n" + cal_report
+        print(
+            f"ECE={calibration.ece:.4f} (n_bins={calibration.n_bins}, "
+            f"strategy={calibration.strategy}), "
+            f"ECE difference={calibration.ece_difference:.4f}"
+        )
 
     group_col_2 = getattr(args, "group_col_2", None)
     if group_col_2:
@@ -206,6 +224,27 @@ def main():
         default=1.0,
         help="Generalized entropy alpha for Theil/GEI inequality "
              "(1=Theil index, 0=mean log deviation, 2=half squared CV).",
+    )
+    eval_parser.add_argument(
+        "--score-col",
+        type=str,
+        default="y_score",
+        help="Predicted probability column in [0, 1]. When present, the "
+             "report includes ECE and a reliability diagram table overall "
+             "and per group.",
+    )
+    eval_parser.add_argument(
+        "--calibration-bins",
+        type=int,
+        default=10,
+        help="Number of bins for ECE / reliability diagrams (default: 10).",
+    )
+    eval_parser.add_argument(
+        "--calibration-strategy",
+        type=str,
+        default="uniform",
+        choices=["uniform", "quantile"],
+        help="Binning strategy: uniform (equal-width) or quantile (equal-mass).",
     )
     eval_parser.add_argument("--title", type=str, default="Fairness Evaluation Report", help="Report title")
     eval_parser.add_argument("--output", type=str, required=True, help="Output report path")

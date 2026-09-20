@@ -7,6 +7,7 @@ from fairness_audit_kit.metrics import FairnessMetrics
 from fairness_audit_kit.optimizer import OptimizationResult
 from fairness_audit_kit.intersectional import IntersectionalFairnessResult
 from fairness_audit_kit.theil import GeneralizedEntropyResult
+from fairness_audit_kit.calibration import CalibrationResult, ReliabilityBin
 
 
 def render_metrics_report(metrics: FairnessMetrics, title: str = "Fairness Evaluation Report") -> str:
@@ -132,6 +133,92 @@ def render_theil_report(
         "Overall = between-group + within-group.",
         "- **alpha**: 1 = Theil index (default), 0 = mean log deviation, "
         "2 = half the squared coefficient of variation.",
+        "",
+    ])
+
+    return "\n".join(lines)
+
+
+def _reliability_table(bins: List[ReliabilityBin]) -> List[str]:
+    lines = [
+        "| Bin | Range | N | Mean Confidence | Observed Rate | Gap |",
+        "|-----|-------|---|-----------------|---------------|-----|",
+    ]
+    if not bins:
+        lines.append("| — | — | 0 | — | — | — |")
+        return lines
+    for b in bins:
+        lines.append(
+            f"| {b.bin_index} | [{b.lower:.2f}, {b.upper:.2f}] | {b.n_samples} | "
+            f"{b.mean_confidence:.4f} | {b.observed_positive_rate:.4f} | {b.gap:.4f} |"
+        )
+    return lines
+
+
+def render_calibration_report(
+    result: CalibrationResult,
+    title: str = "Reliability / Calibration Report",
+) -> str:
+    """Render ECE and reliability diagram tables as Markdown."""
+    strategy_label = (
+        "equal-width (uniform)"
+        if result.strategy == "uniform"
+        else "equal-mass (quantile)"
+    )
+
+    lines = [
+        f"# {title}",
+        "",
+        f"{result.n_bins} {strategy_label} bins, {result.n_groups} groups, "
+        f"{result.n_samples} samples.",
+        "",
+        f"- **Overall ECE**: {result.ece:.4f}",
+        f"- **Overall MCE**: {result.mce:.4f}",
+        f"- **ECE Difference (max − min group)**: {result.ece_difference:.4f}",
+        "",
+        "## ECE by Group",
+        "",
+        "| Group | N | ECE | MCE |",
+        "|-------|---|-----|-----|",
+    ]
+    for group in sorted(result.group_size.keys(), key=str):
+        cell = str(group).replace("|", "\\|")
+        lines.append(
+            f"| {cell} | {result.group_size[group]} | "
+            f"{result.group_ece[group]:.4f} | {result.group_mce[group]:.4f} |"
+        )
+
+    lines.extend([
+        "",
+        "## Overall Reliability Diagram",
+        "",
+    ])
+    lines.extend(_reliability_table(result.reliability_bins))
+    lines.extend(["", "## Reliability by Group", ""])
+
+    for group in sorted(result.group_reliability_bins.keys(), key=str):
+        cell = str(group).replace("|", "\\|")
+        lines.extend([f"### Group: {cell}", ""])
+        lines.extend(_reliability_table(result.group_reliability_bins[group]))
+        lines.append("")
+
+    lines.extend([
+        "## Interpretation",
+        "",
+        "- **ECE (Expected Calibration Error)**: sample-weighted average of "
+        "|observed positive rate − mean predicted probability| across bins. "
+        "0 means perfectly calibrated.",
+        "- **MCE (Maximum Calibration Error)**: largest single-bin gap. "
+        "Highlights a badly calibrated region that ECE may dilute.",
+        "- **Reliability diagram**: each row is a bin. Well-calibrated "
+        "predictions have mean confidence ≈ observed rate (gap near 0). "
+        "Above the diagonal is under-confidence; below is over-confidence.",
+        "- **ECE by group**: a model can look calibrated overall while one "
+        "sensitive group is systematically over- or under-confident.",
+        "- **ECE difference**: max group ECE − min group ECE. 0 means every "
+        "group is equally (mis)calibrated.",
+        "- **uniform** bins are equal-width on [0, 1] (standard ECE). "
+        "**quantile** bins have (approximately) equal sample counts.",
         "",
     ])
 
@@ -322,6 +409,7 @@ __all__ = [
     "render_metrics_report",
     "render_intersectional_report",
     "render_theil_report",
+    "render_calibration_report",
     "render_optimization_report",
     "render_comparison_report",
 ]
