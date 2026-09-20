@@ -102,9 +102,14 @@ class TestReliabilityBins:
         )
         assert len(bins) == 1
         assert bins[0].n_samples == 4
-        assert expected_calibration_error(
-            y_true, y_scores, n_bins=5, strategy="quantile"
-        ) == 0.0
+        assert abs(bins[0].mean_confidence - 0.4) < 1e-12
+        assert abs(bins[0].observed_positive_rate - 0.5) < 1e-12
+        assert abs(
+            expected_calibration_error(
+                y_true, y_scores, n_bins=5, strategy="quantile"
+            )
+            - 0.1
+        ) < 1e-12
 
     def test_bin_to_dict(self):
         y_true = np.array([1, 0])
