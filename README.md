@@ -293,7 +293,9 @@ Options:
 
 ### airness-audit evaluate
 
-Evaluate fairness metrics on predictions.
+Evaluate fairness metrics on predictions. The report always includes
+equalized odds (TPR/FPR) and predictive parity (PPV) per-group rates
+and pairwise gaps, plus Theil / generalized entropy.
 
 `ash
 fairness-audit evaluate [OPTIONS] --data-path PATH --output PATH
@@ -307,9 +309,6 @@ Options:
                           intersectional fairness on the cross of --group-col
                           and this column, and include the worst intersection
                           in the report
-                          The evaluate report always includes equalized odds
-                          (TPR/FPR) and predictive parity (PPV) per-group
-                          rates and pairwise gaps
   --entropy-alpha FLOAT   Generalized entropy alpha (default: 1 = Theil).
                           0 = mean log deviation, 2 = half squared CV.
                           The evaluate report always includes benefit and
