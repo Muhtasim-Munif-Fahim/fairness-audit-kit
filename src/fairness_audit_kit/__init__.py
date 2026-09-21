@@ -38,6 +38,17 @@ from fairness_audit_kit.calibration import (
     compute_calibration_metrics,
 )
 
+from fairness_audit_kit.odds_parity import (
+    PairwiseGap,
+    GroupRateTable,
+    EqualizedOddsResult,
+    PredictiveParityResult,
+    OddsParityResult,
+    compute_equalized_odds,
+    compute_predictive_parity,
+    compute_odds_parity_metrics,
+)
+
 from fairness_audit_kit.optimizer import (
     OptimizationResult,
     optimize_thresholds,
@@ -55,6 +66,7 @@ from fairness_audit_kit.report import (
     render_intersectional_report,
     render_theil_report,
     render_calibration_report,
+    render_odds_parity_report,
     render_optimization_report,
     render_comparison_report,
 )
@@ -81,6 +93,14 @@ __all__ = [
     "expected_calibration_error",
     "maximum_calibration_error",
     "compute_calibration_metrics",
+    "PairwiseGap",
+    "GroupRateTable",
+    "EqualizedOddsResult",
+    "PredictiveParityResult",
+    "OddsParityResult",
+    "compute_equalized_odds",
+    "compute_predictive_parity",
+    "compute_odds_parity_metrics",
     "OptimizationResult",
     "optimize_thresholds",
     "find_threshold_for_metric",
@@ -91,6 +111,7 @@ __all__ = [
     "render_intersectional_report",
     "render_theil_report",
     "render_calibration_report",
+    "render_odds_parity_report",
     "render_optimization_report",
     "render_comparison_report",
 ]

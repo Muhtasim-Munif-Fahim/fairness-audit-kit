@@ -15,11 +15,13 @@ from fairness_audit_kit import (
     compute_intersectional_metrics,
     compute_generalized_entropy,
     compute_calibration_metrics,
+    compute_odds_parity_metrics,
     optimize_thresholds,
     render_metrics_report,
     render_intersectional_report,
     render_theil_report,
     render_calibration_report,
+    render_odds_parity_report,
     render_optimization_report,
 )
 
@@ -93,6 +95,16 @@ def cmd_evaluate(args):
     
     metrics = compute_fairness_metrics(y_true, y_pred, groups)
     report = render_metrics_report(metrics, args.title)
+
+    odds = compute_odds_parity_metrics(y_true, y_pred, groups)
+    odds_report = render_odds_parity_report(odds)
+    report = report.rstrip() + "\n\n---\n\n" + odds_report
+    print(
+        f"Equalized odds difference={odds.equalized_odds_difference:.4f}, "
+        f"TPR difference={odds.tpr_difference:.4f}, "
+        f"FPR difference={odds.fpr_difference:.4f}, "
+        f"PPV difference={odds.ppv_difference:.4f}"
+    )
 
     entropy_alpha = getattr(args, "entropy_alpha", 1.0)
     entropy = compute_generalized_entropy(

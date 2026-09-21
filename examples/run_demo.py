@@ -14,10 +14,12 @@ from fairness_audit_kit import (
     compute_fairness_metrics,
     compute_theil_metrics,
     compute_calibration_metrics,
+    compute_odds_parity_metrics,
     optimize_thresholds,
     render_metrics_report,
     render_theil_report,
     render_calibration_report,
+    render_odds_parity_report,
     render_optimization_report,
 )
 
@@ -77,6 +79,11 @@ def run_demo():
     calibration = compute_calibration_metrics(y_test, y_scores, g_test)
     cal_report = render_calibration_report(calibration)
     print(cal_report)
+
+    print("\n3d. Equalized odds and predictive parity (per-group rates and pairwise gaps)...")
+    odds = compute_odds_parity_metrics(y_test, y_pred, g_test)
+    odds_report = render_odds_parity_report(odds)
+    print(odds_report)
     
     # 4. Optimize thresholds for equalized odds
     print("\n4. Optimizing thresholds for equalized odds constraint...")

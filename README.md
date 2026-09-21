@@ -5,6 +5,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 ## Features
 
 - **Group Fairness Metrics**: Demographic Parity Difference, Equal Opportunity Difference, Equalized Odds Difference, Disparate Impact Ratio, Calibration by Group
+- **Equalized Odds / Predictive Parity Gaps**: Per-group TPR, FPR, and PPV with every pairwise gap (Hardt et al.; Chouldechova). Optional scores are thresholded when hard labels are omitted
 - **Theil / Generalized Entropy**: Inequality of classification benefit or error across groups, with between/within decomposition (Theil is alpha=1)
 - **Reliability / Calibration by Group**: Expected Calibration Error (ECE) overall and per sensitive group, plus binned reliability diagram tables
 - **Intersectional Subgroup Fairness**: Evaluate the same group metrics on the cross of two sensitive attributes and surface the worst-off intersection
@@ -47,6 +48,7 @@ fairness-audit optimize --data-path preds.csv --score-col y_score --constraint e
 src/fairness_audit_kit/
 ├── __init__.py          # Main exports
 ├── metrics.py           # Group fairness metrics
+├── odds_parity.py       # Equalized odds (TPR/FPR) and predictive parity (PPV) gaps
 ├── theil.py             # Theil index / generalized entropy inequality
 ├── calibration.py       # ECE and reliability diagram data by group
 ├── intersectional.py    # Intersectional subgroup fairness
@@ -92,6 +94,43 @@ print(f"Equalized Odds Diff: {metrics.equalized_odds_difference:.4f}")
 print(f"Disparate Impact Ratio: {metrics.disparate_impact_ratio:.4f}")
 print(f"Calibration by group: {metrics.calibration_by_group}")
 `
+
+### Equalized Odds and Predictive Parity
+
+`compute_fairness_metrics` already reports **scalar** max-minus-min TPR (equal opportunity) and equalized-odds summaries, plus demographic parity and disparate impact. This module adds the **per-group rates and every pairwise gap**, and **predictive parity (PPV)** which was not previously exposed.
+
+Equalized odds (Hardt, Price, and Srebro, NIPS 2016) requires TPR and FPR to match across groups. Predictive parity (Chouldechova, 2017) requires PPV / precision to match. Pass binary `y_true` and `y_pred`, or omit `y_pred` and pass scores (thresholded at 0.5 by default).
+
+```python
+from fairness_audit_kit import (
+    compute_equalized_odds,
+    compute_predictive_parity,
+    compute_odds_parity_metrics,
+    render_odds_parity_report,
+)
+
+eo = compute_equalized_odds(y_true, y_pred, groups)
+print(f"TPR by group: {eo.tpr.group_rates}")
+print(f"FPR by group: {eo.fpr.group_rates}")
+print(f"TPR pairwise gaps: {eo.tpr.pairwise_gaps}")
+print(f"Equalized odds difference: {eo.equalized_odds_difference:.4f}")
+
+pp = compute_predictive_parity(y_true, y_pred, groups)
+print(f"PPV by group: {pp.ppv.group_rates}")
+print(f"PPV difference: {pp.ppv_difference:.4f}")
+
+# Scores only — hard labels are derived at the given threshold
+eo_from_scores = compute_equalized_odds(
+    y_true, None, groups, y_scores=y_scores, threshold=0.5
+)
+
+result = compute_odds_parity_metrics(y_true, y_pred, groups)
+report = render_odds_parity_report(result)
+```
+
+`fairness-audit evaluate` always appends this section (it only needs labels and predictions).
+
+Demographic parity / statistical parity difference and disparate impact ratio stay on `compute_fairness_metrics` (`demographic_parity_difference`, `disparate_impact_ratio`). They were not duplicated here because those scalars already exist.
 
 ### Intersectional Subgroup Fairness
 
@@ -268,6 +307,9 @@ Options:
                           intersectional fairness on the cross of --group-col
                           and this column, and include the worst intersection
                           in the report
+                          The evaluate report always includes equalized odds
+                          (TPR/FPR) and predictive parity (PPV) per-group
+                          rates and pairwise gaps
   --entropy-alpha FLOAT   Generalized entropy alpha (default: 1 = Theil).
                           0 = mean log deviation, 2 = half squared CV.
                           The evaluate report always includes benefit and
@@ -319,6 +361,8 @@ _features |
 | Demographic Parity Difference | Max - min positive prediction rate across groups | 0 |
 | Equal Opportunity Difference | Max - min true positive rate across groups | 0 |
 | Equalized Odds Difference | Max of TPR diff and FPR diff across groups | 0 |
+| TPR / FPR pairwise gaps | Per-group true/false positive rates and every pair gap | 0 |
+| Predictive parity (PPV gap) | Max − min positive predictive value (precision) across groups | 0 |
 | Disparate Impact Ratio | Min positive rate / max positive rate | 1.0 |
 | Calibration by Group | P(y=1|y_hat=1) / P(y=1) per group | 1.0 |
 | Theil index | Generalized entropy of benefit or error with alpha=1 | 0 |
