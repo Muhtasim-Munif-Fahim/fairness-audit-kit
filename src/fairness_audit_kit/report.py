@@ -8,6 +8,7 @@ from fairness_audit_kit.optimizer import OptimizationResult
 from fairness_audit_kit.intersectional import IntersectionalFairnessResult
 from fairness_audit_kit.theil import GeneralizedEntropyResult
 from fairness_audit_kit.calibration import CalibrationResult, ReliabilityBin
+from fairness_audit_kit.odds_parity import OddsParityResult, GroupRateTable
 
 
 def render_metrics_report(metrics: FairnessMetrics, title: str = "Fairness Evaluation Report") -> str:
@@ -225,6 +226,91 @@ def render_calibration_report(
     return "\n".join(lines)
 
 
+def _pairwise_gap_table(table: GroupRateTable, heading: str) -> List[str]:
+    lines = [
+        f"### {heading}",
+        "",
+        "| Group A | Group B | Rate A | Rate B | Gap | Abs Gap |",
+        "|---------|---------|--------|--------|-----|---------|",
+    ]
+    if not table.pairwise_gaps:
+        lines.append("| — | — | — | — | — | — |")
+        return lines
+    for gap in table.pairwise_gaps:
+        a = str(gap.group_a).replace("|", "\\|")
+        b = str(gap.group_b).replace("|", "\\|")
+        lines.append(
+            f"| {a} | {b} | {gap.rate_a:.4f} | {gap.rate_b:.4f} | "
+            f"{gap.gap:.4f} | {gap.abs_gap:.4f} |"
+        )
+    return lines
+
+
+def render_odds_parity_report(
+    result: OddsParityResult,
+    title: str = "Equalized Odds / Predictive Parity Report",
+) -> str:
+    """Render per-group TPR/FPR/PPV rates and pairwise gaps as Markdown."""
+    lines = [
+        f"# {title}",
+        "",
+        f"{result.n_groups} groups, {result.n_samples} samples.",
+        "",
+        f"- **TPR Difference (Equal Opportunity)**: {result.tpr_difference:.4f}",
+        f"- **FPR Difference**: {result.fpr_difference:.4f}",
+        f"- **Equalized Odds Difference**: {result.equalized_odds_difference:.4f}",
+        f"- **PPV Difference (Predictive Parity)**: {result.ppv_difference:.4f}",
+        "",
+        "## Rates by Group",
+        "",
+        "| Group | N | TPR | FPR | PPV |",
+        "|-------|---|-----|-----|-----|",
+    ]
+    tpr_rates = result.equalized_odds.tpr.group_rates
+    fpr_rates = result.equalized_odds.fpr.group_rates
+    ppv_rates = result.predictive_parity.ppv.group_rates
+    for group in sorted(result.group_size.keys(), key=str):
+        cell = str(group).replace("|", "\\|")
+        lines.append(
+            f"| {cell} | {result.group_size[group]} | "
+            f"{tpr_rates[group]:.4f} | {fpr_rates[group]:.4f} | "
+            f"{ppv_rates[group]:.4f} |"
+        )
+
+    lines.extend(["", "## Pairwise Gaps", ""])
+    lines.extend(_pairwise_gap_table(result.equalized_odds.tpr, "True Positive Rate"))
+    lines.extend([""])
+    lines.extend(_pairwise_gap_table(result.equalized_odds.fpr, "False Positive Rate"))
+    lines.extend([""])
+    lines.extend(
+        _pairwise_gap_table(
+            result.predictive_parity.ppv, "Positive Predictive Value"
+        )
+    )
+
+    lines.extend([
+        "",
+        "## Interpretation",
+        "",
+        "- **Equalized odds** (Hardt, Price, and Srebro, NIPS 2016): TPR and FPR "
+        "equal across groups. Difference is max(TPR gap, FPR gap). 0 = equalized odds.",
+        "- **TPR difference** is equal opportunity (Hardt et al.). It matches "
+        "`compute_fairness_metrics().equal_opportunity_difference`.",
+        "- **Equalized odds difference** matches "
+        "`compute_fairness_metrics().equalized_odds_difference`. This report also "
+        "lists every pairwise gap, not only the max-minus-min summary.",
+        "- **Predictive parity** (Chouldechova, 2017): PPV / precision equal "
+        "across groups. 0 = predictive parity. This was not previously exposed.",
+        "- **Pairwise gap** is rate(group A) − rate(group B) with labels sorted "
+        "lexicographically. |Gap| is the absolute disparity for that pair.",
+        "- Undefined rates (no actual positives for TPR, no actual negatives for "
+        "FPR, no predicted positives for PPV) are reported as 0, matching the "
+        "other group metrics in this kit.",
+        "",
+    ])
+    return "\n".join(lines)
+
+
 def render_intersectional_report(
     result: IntersectionalFairnessResult,
     title: str = "Intersectional Fairness Report",
@@ -410,6 +496,7 @@ __all__ = [
     "render_intersectional_report",
     "render_theil_report",
     "render_calibration_report",
+    "render_odds_parity_report",
     "render_optimization_report",
     "render_comparison_report",
 ]
