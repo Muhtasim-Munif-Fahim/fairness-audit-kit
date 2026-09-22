@@ -16,12 +16,14 @@ from fairness_audit_kit import (
     compute_generalized_entropy,
     compute_calibration_metrics,
     compute_odds_parity_metrics,
+    compute_demographic_parity,
     optimize_thresholds,
     render_metrics_report,
     render_intersectional_report,
     render_theil_report,
     render_calibration_report,
     render_odds_parity_report,
+    render_demographic_parity_report,
     render_optimization_report,
 )
 
@@ -104,6 +106,14 @@ def cmd_evaluate(args):
         f"TPR difference={odds.tpr_difference:.4f}, "
         f"FPR difference={odds.fpr_difference:.4f}, "
         f"PPV difference={odds.ppv_difference:.4f}"
+    )
+
+    parity = compute_demographic_parity(y_pred, groups)
+    parity_report = render_demographic_parity_report(parity)
+    report = report.rstrip() + "\n\n---\n\n" + parity_report
+    print(
+        f"Statistical parity difference={parity.statistical_parity_difference:.4f}, "
+        f"disparate impact ratio={parity.disparate_impact_ratio:.4f}"
     )
 
     entropy_alpha = getattr(args, "entropy_alpha", 1.0)

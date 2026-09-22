@@ -6,6 +6,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 
 - **Group Fairness Metrics**: Demographic Parity Difference, Equal Opportunity Difference, Equalized Odds Difference, Disparate Impact Ratio, Calibration by Group
 - **Equalized Odds / Predictive Parity Gaps**: Per-group TPR, FPR, and PPV with every pairwise gap (Hardt et al.; Chouldechova). Optional scores are thresholded when hard labels are omitted
+- **Demographic Parity / Disparate Impact**: Per-group positive prediction rates, statistical parity difference (max − min), and disparate impact ratio (min / max). Needs only binary predictions and a sensitive attribute
 - **Theil / Generalized Entropy**: Inequality of classification benefit or error across groups, with between/within decomposition (Theil is alpha=1)
 - **Reliability / Calibration by Group**: Expected Calibration Error (ECE) overall and per sensitive group, plus binned reliability diagram tables
 - **Intersectional Subgroup Fairness**: Evaluate the same group metrics on the cross of two sensitive attributes and surface the worst-off intersection
@@ -49,6 +50,7 @@ src/fairness_audit_kit/
 ├── __init__.py          # Main exports
 ├── metrics.py           # Group fairness metrics
 ├── odds_parity.py       # Equalized odds (TPR/FPR) and predictive parity (PPV) gaps
+├── demographic_parity.py # Statistical parity difference and disparate impact ratio
 ├── theil.py             # Theil index / generalized entropy inequality
 ├── calibration.py       # ECE and reliability diagram data by group
 ├── intersectional.py    # Intersectional subgroup fairness
@@ -130,7 +132,35 @@ report = render_odds_parity_report(result)
 
 `fairness-audit evaluate` always appends this section (it only needs labels and predictions).
 
-Demographic parity / statistical parity difference and disparate impact ratio stay on `compute_fairness_metrics` (`demographic_parity_difference`, `disparate_impact_ratio`). They were not duplicated here because those scalars already exist.
+Per-group positive rates, statistical parity difference, and the disparate impact ratio are computed by `compute_demographic_parity` (predictions and a sensitive attribute only; labels are not required). The scalar summaries on `compute_fairness_metrics` (`demographic_parity_difference`, `disparate_impact_ratio`) use the same definitions.
+
+### Demographic Parity and Disparate Impact
+
+Demographic parity (Dwork et al., ITCS 2012), also called statistical parity, requires the positive prediction rate to be equal across groups. The metric uses predictions and the sensitive attribute only. Pass binary `y_pred` and a sensitive attribute, or omit `y_pred` and pass scores (thresholded at 0.5 by default).
+
+Statistical parity difference (SPD) is max positive rate minus min positive rate. It matches `compute_fairness_metrics().demographic_parity_difference` (also exposed as `demographic_parity_difference` on the result). Disparate impact ratio is min rate / max rate (Feldman et al., KDD 2015). 1.0 means the rates match; below 0.8 is the usual four-fifths-rule flag. When every group has a zero positive rate, the ratio is 1.0.
+
+```python
+from fairness_audit_kit import (
+    compute_demographic_parity,
+    render_demographic_parity_report,
+)
+
+parity = compute_demographic_parity(y_pred, groups)
+print(f"Positive rates: {parity.positive_rates}")
+print(f"SPD: {parity.statistical_parity_difference:.4f}")
+print(f"Disparate impact: {parity.disparate_impact_ratio:.4f}")
+print(f"Pairwise gaps: {parity.positive_rate.pairwise_gaps}")
+
+# Scores only — hard labels are derived at the given threshold
+parity_from_scores = compute_demographic_parity(
+    None, groups, y_scores=y_scores, threshold=0.5
+)
+
+report = render_demographic_parity_report(parity)
+```
+
+`fairness-audit evaluate` always appends this section (it only needs predictions and the group column).
 
 ### Intersectional Subgroup Fairness
 
@@ -295,7 +325,9 @@ Options:
 
 Evaluate fairness metrics on predictions. The report always includes
 equalized odds (TPR/FPR) and predictive parity (PPV) per-group rates
-and pairwise gaps, plus Theil / generalized entropy.
+and pairwise gaps, demographic parity (per-group positive rates,
+statistical parity difference, and disparate impact ratio), plus
+Theil / generalized entropy.
 
 `ash
 fairness-audit evaluate [OPTIONS] --data-path PATH --output PATH
@@ -358,6 +390,8 @@ _features |
 | Metric | Description | Ideal |
 |--------|-------------|-------|
 | Demographic Parity Difference | Max - min positive prediction rate across groups | 0 |
+| Statistical parity difference | Same unsigned gap, with per-group positive rates and pairwise gaps. Labels not required | 0 |
+| Positive rate by group | P(y_pred = 1 \| group) for the sensitive attribute | equal across groups |
 | Equal Opportunity Difference | Max - min true positive rate across groups | 0 |
 | Equalized Odds Difference | Max of TPR diff and FPR diff across groups | 0 |
 | TPR / FPR pairwise gaps | Per-group true/false positive rates and every pair gap | 0 |

@@ -9,6 +9,7 @@ from fairness_audit_kit.intersectional import IntersectionalFairnessResult
 from fairness_audit_kit.theil import GeneralizedEntropyResult
 from fairness_audit_kit.calibration import CalibrationResult, ReliabilityBin
 from fairness_audit_kit.odds_parity import OddsParityResult, GroupRateTable
+from fairness_audit_kit.demographic_parity import DemographicParityResult
 
 
 def render_metrics_report(metrics: FairnessMetrics, title: str = "Fairness Evaluation Report") -> str:
@@ -311,6 +312,62 @@ def render_odds_parity_report(
     return "\n".join(lines)
 
 
+def render_demographic_parity_report(
+    result: DemographicParityResult,
+    title: str = "Demographic Parity / Disparate Impact Report",
+) -> str:
+    """Render per-group positive rates, SPD, and disparate impact as Markdown."""
+    lines = [
+        f"# {title}",
+        "",
+        f"{result.n_groups} groups, {result.n_samples} samples. "
+        "Labels are not used; only predictions and the sensitive attribute.",
+        "",
+        f"- **Statistical Parity Difference**: {result.statistical_parity_difference:.4f}",
+        f"- **Demographic Parity Difference**: {result.demographic_parity_difference:.4f}",
+        f"- **Disparate Impact Ratio**: {result.disparate_impact_ratio:.4f}",
+        "",
+        "## Positive Rates by Group",
+        "",
+        "| Group | N | Positive Count | Positive Rate |",
+        "|-------|---|----------------|---------------|",
+    ]
+    for group in sorted(result.group_size.keys(), key=str):
+        cell = str(group).replace("|", "\\|")
+        lines.append(
+            f"| {cell} | {result.group_size[group]} | "
+            f"{result.positive_count[group]} | {result.positive_rates[group]:.4f} |"
+        )
+
+    lines.extend(["", "## Pairwise Gaps", ""])
+    lines.extend(
+        _pairwise_gap_table(result.positive_rate, "Positive Prediction Rate")
+    )
+
+    lines.extend([
+        "",
+        "## Interpretation",
+        "",
+        "- **Demographic parity** (Dwork et al., ITCS 2012), also called "
+        "statistical parity: the positive prediction rate is equal across "
+        "groups. This audit does not use ground-truth labels.",
+        "- **Statistical parity difference**: max positive rate − min positive "
+        "rate. 0 = parity. This matches "
+        "`compute_fairness_metrics().demographic_parity_difference`.",
+        "- **Demographic parity difference** is the same unsigned gap, exposed "
+        "under the name used by the rest of this kit.",
+        "- **Disparate impact ratio** (Feldman et al., KDD 2015): min positive "
+        "rate / max positive rate. 1.0 = no disparate impact. A ratio below "
+        "0.8 is the usual four-fifths-rule flag. This matches "
+        "`compute_fairness_metrics().disparate_impact_ratio`. When every "
+        "group has a zero positive rate, the ratio is 1.0.",
+        "- **Pairwise gap** is rate(group A) − rate(group B) with labels sorted "
+        "lexicographically. |Gap| is the absolute disparity for that pair.",
+        "",
+    ])
+    return "\n".join(lines)
+
+
 def render_intersectional_report(
     result: IntersectionalFairnessResult,
     title: str = "Intersectional Fairness Report",
@@ -497,6 +554,7 @@ __all__ = [
     "render_theil_report",
     "render_calibration_report",
     "render_odds_parity_report",
+    "render_demographic_parity_report",
     "render_optimization_report",
     "render_comparison_report",
 ]
