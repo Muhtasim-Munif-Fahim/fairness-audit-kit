@@ -49,6 +49,11 @@ from fairness_audit_kit.odds_parity import (
     compute_odds_parity_metrics,
 )
 
+from fairness_audit_kit.demographic_parity import (
+    DemographicParityResult,
+    compute_demographic_parity,
+)
+
 from fairness_audit_kit.optimizer import (
     OptimizationResult,
     optimize_thresholds,
@@ -67,6 +72,7 @@ from fairness_audit_kit.report import (
     render_theil_report,
     render_calibration_report,
     render_odds_parity_report,
+    render_demographic_parity_report,
     render_optimization_report,
     render_comparison_report,
 )
@@ -101,6 +107,8 @@ __all__ = [
     "compute_equalized_odds",
     "compute_predictive_parity",
     "compute_odds_parity_metrics",
+    "DemographicParityResult",
+    "compute_demographic_parity",
     "OptimizationResult",
     "optimize_thresholds",
     "find_threshold_for_metric",
@@ -112,6 +120,7 @@ __all__ = [
     "render_theil_report",
     "render_calibration_report",
     "render_odds_parity_report",
+    "render_demographic_parity_report",
     "render_optimization_report",
     "render_comparison_report",
 ]

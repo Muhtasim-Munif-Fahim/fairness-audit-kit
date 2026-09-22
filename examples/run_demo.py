@@ -15,11 +15,13 @@ from fairness_audit_kit import (
     compute_theil_metrics,
     compute_calibration_metrics,
     compute_odds_parity_metrics,
+    compute_demographic_parity,
     optimize_thresholds,
     render_metrics_report,
     render_theil_report,
     render_calibration_report,
     render_odds_parity_report,
+    render_demographic_parity_report,
     render_optimization_report,
 )
 
@@ -84,6 +86,11 @@ def run_demo():
     odds = compute_odds_parity_metrics(y_test, y_pred, g_test)
     odds_report = render_odds_parity_report(odds)
     print(odds_report)
+
+    print("\n3e. Demographic parity and disparate impact (predictions and group only)...")
+    parity = compute_demographic_parity(y_pred, g_test)
+    parity_report = render_demographic_parity_report(parity)
+    print(parity_report)
     
     # 4. Optimize thresholds for equalized odds
     print("\n4. Optimizing thresholds for equalized odds constraint...")
