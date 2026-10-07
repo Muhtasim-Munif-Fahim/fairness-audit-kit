@@ -557,4 +557,35 @@ __all__ = [
     "render_demographic_parity_report",
     "render_optimization_report",
     "render_comparison_report",
+    "render_counterfactual_report",
 ]
+
+
+def render_counterfactual_report(
+    result: "CounterfactualFairnessResult",
+    title: str = "Counterfactual Fairness Proxy Report",
+) -> str:
+    """Render a markdown summary of the sensitive-flip score proxy."""
+    lines = [
+        f"# {title}",
+        "",
+        f"- Samples: {result.n_samples}",
+        f"- Groups: {result.n_groups}",
+        f"- Mean |Δ score|: {result.mean_abs_delta:.6f}",
+        f"- Median |Δ score|: {result.median_abs_delta:.6f}",
+        f"- Max |Δ score|: {result.max_abs_delta:.6f}",
+        f"- Decision flip rate: {result.decision_flip_rate:.4f}",
+    ]
+    if result.threshold is not None:
+        lines.append(f"- Decision threshold: {result.threshold:g}")
+    lines.extend(["", "## Per-group mean |Δ|", ""])
+    lines.append("| group | n | mean_abs_delta | decision_flip_rate |")
+    lines.append("| --- | ---: | ---: | ---: |")
+    for g in sorted(result.group_size):
+        lines.append(
+            f"| {g} | {result.group_size[g]} | "
+            f"{result.group_mean_abs_delta[g]:.6f} | "
+            f"{result.group_decision_flip_rate[g]:.4f} |"
+        )
+    lines.append("")
+    return "\n".join(lines)

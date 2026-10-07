@@ -8,6 +8,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 - **Equalized Odds / Predictive Parity Gaps**: Per-group TPR, FPR, and PPV with every pairwise gap (Hardt et al.; Chouldechova). Optional scores are thresholded when hard labels are omitted
 - **Demographic Parity / Disparate Impact**: Per-group positive prediction rates, statistical parity difference (max − min), and disparate impact ratio (min / max). Needs only binary predictions and a sensitive attribute
 - **Theil / Generalized Entropy**: Inequality of classification benefit or error across groups, with between/within decomposition (Theil is alpha=1)
+- **Counterfactual Fairness Proxy**: Compare factual vs sensitive-attribute-flipped scores (Kusner et al. proxy without a causal graph)
 - **Reliability / Calibration by Group**: Expected Calibration Error (ECE) overall and per sensitive group, plus binned reliability diagram tables
 - **Intersectional Subgroup Fairness**: Evaluate the same group metrics on the cross of two sensitive attributes and surface the worst-off intersection
 - **Confusion Matrices by Group**: Per-group confusion matrices with configurable thresholds
@@ -53,6 +54,7 @@ src/fairness_audit_kit/
 ├── demographic_parity.py # Statistical parity difference and disparate impact ratio
 ├── theil.py             # Theil index / generalized entropy inequality
 ├── calibration.py       # ECE and reliability diagram data by group
+├── counterfactual.py    # Sensitive-flip counterfactual fairness proxy
 ├── intersectional.py    # Intersectional subgroup fairness
 ├── optimizer.py         # Threshold optimization
 ├── generator.py         # Synthetic biased dataset generator

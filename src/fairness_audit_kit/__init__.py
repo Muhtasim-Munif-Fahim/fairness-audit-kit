@@ -73,11 +73,18 @@ from fairness_audit_kit.report import (
     render_calibration_report,
     render_odds_parity_report,
     render_demographic_parity_report,
+    render_counterfactual_report,
     render_optimization_report,
     render_comparison_report,
 )
 
 __all__ = [
+    "render_counterfactual_report",
+    "score_with_sensitive_flip",
+    "remap_sensitive_column",
+    "flip_sensitive_attribute",
+    "compute_counterfactual_fairness_proxy",
+    "CounterfactualFairnessResult",
     "FairnessMetrics",
     "compute_fairness_metrics",
     "confusion_matrices_by_group",
@@ -124,3 +131,12 @@ __all__ = [
     "render_optimization_report",
     "render_comparison_report",
 ]
+
+from fairness_audit_kit.counterfactual import (
+    CounterfactualFairnessResult,
+    compute_counterfactual_fairness_proxy,
+    flip_sensitive_attribute,
+    remap_sensitive_column,
+    score_with_sensitive_flip,
+)
+
