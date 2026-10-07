@@ -24,6 +24,8 @@ from fairness_audit_kit import (
     render_calibration_report,
     render_odds_parity_report,
     render_demographic_parity_report,
+    compute_counterfactual_fairness_proxy,
+    render_counterfactual_report,
     render_optimization_report,
 )
 
@@ -142,6 +144,22 @@ def cmd_evaluate(args):
             f"ECE={calibration.ece:.4f} (n_bins={calibration.n_bins}, "
             f"strategy={calibration.strategy}), "
             f"ECE difference={calibration.ece_difference:.4f}"
+        )
+
+
+    cf_score_col = getattr(args, "cf_score_col", None)
+    if cf_score_col and cf_score_col in df.columns and score_col and score_col in df.columns:
+        cf = compute_counterfactual_fairness_proxy(
+            df[score_col].values,
+            df[cf_score_col].values,
+            groups,
+            threshold=getattr(args, "cf_threshold", 0.5),
+        )
+        cf_report = render_counterfactual_report(cf)
+        report = report.rstrip() + '\n\n---\n\n' + cf_report
+        print(
+            f"Counterfactual proxy mean |Δ|={cf.mean_abs_delta:.4f}, "
+            f"decision flip rate={cf.decision_flip_rate:.4f}"
         )
 
     group_col_2 = getattr(args, "group_col_2", None)
@@ -267,6 +285,20 @@ def main():
         default="uniform",
         choices=["uniform", "quantile"],
         help="Binning strategy: uniform (equal-width) or quantile (equal-mass).",
+    )
+    eval_parser.add_argument(
+        "--cf-score-col",
+        type=str,
+        default=None,
+        help="Counterfactual score column (scores after flipping the sensitive "
+             "attribute). When set with --score-col, appends the counterfactual "
+             "fairness proxy section.",
+    )
+    eval_parser.add_argument(
+        "--cf-threshold",
+        type=float,
+        default=0.5,
+        help="Decision threshold for counterfactual flip-rate (default: 0.5).",
     )
     eval_parser.add_argument("--title", type=str, default="Fairness Evaluation Report", help="Report title")
     eval_parser.add_argument("--output", type=str, required=True, help="Output report path")
