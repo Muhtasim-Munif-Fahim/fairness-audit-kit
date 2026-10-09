@@ -589,3 +589,38 @@ def render_counterfactual_report(
         )
     lines.append("")
     return "\n".join(lines)
+
+
+def render_abroca_report(result, title: str = "ABROCA Report") -> str:
+    """Render Absolute Between-ROC Area results as Markdown."""
+    lines = [
+        f"# {title}",
+        "",
+        "## Summary",
+        "",
+        f"- **Groups**: {result.n_groups}",
+        f"- **Samples**: {result.n_samples}",
+        f"- **Max ABROCA**: {result.max_abroca:.4f}",
+        f"- **Mean ABROCA**: {result.mean_abroca:.4f}",
+        "",
+        "## Pairwise ABROCA",
+        "",
+        "| Group A | Group B | ABROCA | AUC A | AUC B | |AUC gap| |",
+        "|---------|---------|--------|-------|-------|----------|",
+    ]
+    for pair in result.pairwise:
+        lines.append(
+            f"| {pair.group_a} | {pair.group_b} | {pair.abroca:.4f} | "
+            f"{pair.auc_a:.4f} | {pair.auc_b:.4f} | {pair.auc_gap:.4f} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Interpretation",
+            "",
+            "- **ABROCA** integrates `|TPR_a(f) - TPR_b(f)|` over FPR in `[0, 1]` "
+            "(Gardner et al., LAK 2019). 0 means identical ROC curves.",
+            "",
+        ]
+    )
+    return "\n".join(lines)

@@ -5,6 +5,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 ## Features
 
 - **Group Fairness Metrics**: Demographic Parity Difference, Equal Opportunity Difference, Equalized Odds Difference, Disparate Impact Ratio, Calibration by Group
+- **ABROCA (Absolute Between-ROC Area)**: Integrate `|TPR_a - TPR_b|` over FPR for score-based group disparity (Gardner et al., LAK 2019)
 - **Equalized Odds / Predictive Parity Gaps**: Per-group TPR, FPR, and PPV with every pairwise gap (Hardt et al.; Chouldechova). Optional scores are thresholded when hard labels are omitted
 - **Demographic Parity / Disparate Impact**: Per-group positive prediction rates, statistical parity difference (max − min), and disparate impact ratio (min / max). Needs only binary predictions and a sensitive attribute
 - **Theil / Generalized Entropy**: Inequality of classification benefit or error across groups, with between/within decomposition (Theil is alpha=1)
@@ -98,6 +99,23 @@ print(f"Equalized Odds Diff: {metrics.equalized_odds_difference:.4f}")
 print(f"Disparate Impact Ratio: {metrics.disparate_impact_ratio:.4f}")
 print(f"Calibration by group: {metrics.calibration_by_group}")
 `
+
+
+### ABROCA
+
+`compute_abroca` summarises ranking disparity between groups by integrating
+the absolute gap between their ROC curves over false-positive rate
+(Gardner et al., LAK 2019). Unlike a single equalized-odds snapshot, it
+uses the full score ranking.
+
+```python
+from fairness_audit_kit import compute_abroca
+
+result = compute_abroca(y_true, y_scores, groups)
+print(result.max_abroca, result.mean_abroca)
+for pair in result.pairwise:
+    print(pair.group_a, pair.group_b, pair.abroca)
+```
 
 ### Equalized Odds and Predictive Parity
 
