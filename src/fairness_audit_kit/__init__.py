@@ -76,6 +76,7 @@ from fairness_audit_kit.report import (
     render_counterfactual_report,
     render_optimization_report,
     render_comparison_report,
+    render_abroca_report,
 )
 
 __all__ = [
@@ -130,6 +131,11 @@ __all__ = [
     "render_demographic_parity_report",
     "render_optimization_report",
     "render_comparison_report",
+    "GroupROC",
+    "AbrocaPair",
+    "AbrocaResult",
+    "compute_abroca",
+    "render_abroca_report",
 ]
 
 from fairness_audit_kit.counterfactual import (
@@ -139,4 +145,12 @@ from fairness_audit_kit.counterfactual import (
     remap_sensitive_column,
     score_with_sensitive_flip,
 )
+
+from fairness_audit_kit.abroca import (
+    GroupROC,
+    AbrocaPair,
+    AbrocaResult,
+    compute_abroca,
+)
+
 
