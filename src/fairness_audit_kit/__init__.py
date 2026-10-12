@@ -77,6 +77,13 @@ from fairness_audit_kit.report import (
     render_optimization_report,
     render_comparison_report,
     render_abroca_report,
+    render_reweighing_report,
+)
+
+from fairness_audit_kit.reweighing import (
+    ReweighingResult,
+    compute_reweighing_weights,
+    fit_with_reweighing,
 )
 
 __all__ = [
@@ -136,6 +143,10 @@ __all__ = [
     "AbrocaResult",
     "compute_abroca",
     "render_abroca_report",
+    "ReweighingResult",
+    "compute_reweighing_weights",
+    "fit_with_reweighing",
+    "render_reweighing_report",
 ]
 
 from fairness_audit_kit.counterfactual import (

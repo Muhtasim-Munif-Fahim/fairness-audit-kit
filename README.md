@@ -14,6 +14,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 - **Intersectional Subgroup Fairness**: Evaluate the same group metrics on the cross of two sensitive attributes and surface the worst-off intersection
 - **Confusion Matrices by Group**: Per-group confusion matrices with configurable thresholds
 - **Synthetic Biased Dataset Generator**: Controlled label flip, feature bias, and correlation bias injection
+- **Reweighing (bias mitigation)**: Kamiran–Calders pre-processing weights `w(g, y) = P(g)·P(y) / P(g, y)`. They make the label independent of the sensitive attribute, so every group has the same weighted base rate. Pass them as `sample_weight` when training
 - **Threshold Optimization**: Grid search over thresholds per group for fairness constraints (demographic parity, equal opportunity, equalized odds)
 - **Markdown Evaluation Reports**: Human-readable fairness evaluation reports
 - **CLI Interface**: End-to-end generate -> predict -> evaluate -> report workflow
@@ -58,6 +59,7 @@ src/fairness_audit_kit/
 ├── counterfactual.py    # Sensitive-flip counterfactual fairness proxy
 ├── intersectional.py    # Intersectional subgroup fairness
 ├── optimizer.py         # Threshold optimization
+├── reweighing.py        # Kamiran-Calders reweighing (pre-processing mitigation)
 ├── generator.py         # Synthetic biased dataset generator
 ├── report.py            # Markdown report rendering
 └── cli.py               # Argparse CLI wiring
@@ -271,6 +273,29 @@ report = render_calibration_report(result)
 
 `fairness-audit evaluate` appends this section when the CSV has a score column (default `y_score`).
 
+### Reweighing (Pre-processing Mitigation)
+
+`compute_reweighing_weights` gives every `(group, label)` cell the weight
+`P(g)·P(y) / P(g, y)` (Kamiran & Calders, 2012). The weights sum to `n`, and
+under them the label is independent of the sensitive attribute: the weighted
+positive rate is equal across groups. Features and labels are left unchanged.
+
+```python
+from sklearn.linear_model import LogisticRegression
+from fairness_audit_kit import compute_reweighing_weights, fit_with_reweighing, render_reweighing_report
+
+res = compute_reweighing_weights(y_train, g_train)
+print(res.base_rate_gap_before, res.base_rate_gap_after)   # e.g. 0.21 -> 0.0
+model = LogisticRegression().fit(X_train, y_train, sample_weight=res.weights)
+
+# or in one step
+model, res = fit_with_reweighing(LogisticRegression(), X_train, y_train, g_train)
+print(render_reweighing_report(res))
+```
+
+Cells with no samples cannot be fixed by weighting. They are listed in
+`res.empty_cells`.
+
 ### Optimize Thresholds
 
 `python
@@ -394,6 +419,22 @@ Options:
   --title STR             Report title (default: "Threshold Optimization Report")
   --output PATH           Output report path (required)
 `
+
+### fairness-audit reweigh
+
+Write Kamiran–Calders reweighing weights as a new column of the training CSV.
+
+```bash
+fairness-audit reweigh --data train.csv --output train_weighted.csv --report reweighing.md
+
+Options:
+  --data PATH             Training data CSV (required)
+  --target-col STR        Label column (default: target)
+  --group-col STR         Group column (default: sensitive_attr)
+  --weight-col STR        Output weight column (default: sample_weight)
+  --output PATH           Output CSV path (required)
+  --report PATH           Optional Markdown report path
+```
 
 ## Bias Types
 
