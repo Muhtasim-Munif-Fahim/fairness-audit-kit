@@ -624,3 +624,52 @@ def render_abroca_report(result, title: str = "ABROCA Report") -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def render_reweighing_report(result, title: str = "Reweighing Report") -> str:
+    """Render Kamiran-Calders reweighing weights and base-rate parity as Markdown."""
+    labels = [str(v) for v in result.labels]
+    lines = [
+        f"# {title}",
+        "",
+        "## Summary",
+        "",
+        f"- **Samples**: {result.n_samples}",
+        f"- **Groups**: {result.n_groups}",
+        f"- **Positive label**: {result.positive_label}",
+        f"- **Base-rate gap before**: {result.base_rate_gap_before:.4f}",
+        f"- **Base-rate gap after (weighted)**: {result.base_rate_gap_after:.4f}",
+        "",
+        "## Weights by Group and Label",
+        "",
+        "| Group | " + " | ".join(f"w(y={lab})" for lab in labels) + " | Base rate | Weighted base rate |",
+        "|-------|" + "|".join("---" for _ in labels) + "|---|---|",
+    ]
+    for group in sorted(result.weight_table, key=str):
+        cell = str(group).replace("|", "\\|")
+        ws = " | ".join(
+            "—" if result.weight_table[group][lab] != result.weight_table[group][lab]
+            else f"{result.weight_table[group][lab]:.4f}"
+            for lab in labels
+        )
+        lines.append(
+            f"| {cell} | {ws} | {result.base_rates_before[group]:.4f} | "
+            f"{result.base_rates_after[group]:.4f} |"
+        )
+    if result.empty_cells:
+        lines.extend([
+            "",
+            "**Empty cells** (cannot be rebalanced by weighting): "
+            + ", ".join(f"({g}, y={y})" for g, y in result.empty_cells),
+        ])
+    lines.extend([
+        "",
+        "## Interpretation",
+        "",
+        "- **Reweighing** (Kamiran & Calders, 2012): w(g, y) = P(g)·P(y) / P(g, y). "
+        "Under the weights the label is independent of the sensitive attribute, "
+        "so every group has the same weighted base rate.",
+        "- Pass `weights` as `sample_weight` when training. Features and labels "
+        "are unchanged.",
+    ])
+    return "\n".join(lines) + "\n"

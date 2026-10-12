@@ -27,6 +27,8 @@ from fairness_audit_kit import (
     compute_counterfactual_fairness_proxy,
     render_counterfactual_report,
     render_optimization_report,
+    compute_reweighing_weights,
+    render_reweighing_report,
 )
 
 
@@ -210,6 +212,28 @@ def cmd_optimize(args):
     print(f"Constraint satisfied: {result.constraint_satisfied}")
 
 
+def cmd_reweigh(args):
+    """Compute Kamiran-Calders reweighing weights and write them as a column."""
+    df = pd.read_csv(args.data)
+    for col in (args.target_col, args.group_col):
+        if col not in df.columns:
+            raise SystemExit(f"Column '{col}' not found in {args.data}")
+    result = compute_reweighing_weights(
+        df[args.target_col].values, df[args.group_col].values
+    )
+    df[args.weight_col] = result.weights
+    df.to_csv(args.output, index=False)
+    print(f"Weighted dataset saved to {args.output} (column '{args.weight_col}')")
+    print(
+        f"Base-rate gap: {result.base_rate_gap_before:.4f} -> "
+        f"{result.base_rate_gap_after:.4f} (weighted)"
+    )
+    if args.report:
+        with open(args.report, "w") as f:
+            f.write(render_reweighing_report(result))
+        print(f"Reweighing report saved to {args.report}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="fairness-audit",
@@ -322,6 +346,18 @@ def main():
     opt_parser.add_argument("--output", type=str, required=True, help="Output report path")
     opt_parser.set_defaults(func=cmd_optimize)
     
+    # Reweigh command
+    rw_parser = subparsers.add_parser(
+        "reweigh", help="Kamiran-Calders reweighing weights for bias mitigation"
+    )
+    rw_parser.add_argument("--data", type=str, required=True, help="Training data CSV")
+    rw_parser.add_argument("--target-col", type=str, default="target", help="Label column")
+    rw_parser.add_argument("--group-col", type=str, default="sensitive_attr", help="Group column")
+    rw_parser.add_argument("--weight-col", type=str, default="sample_weight", help="Output weight column")
+    rw_parser.add_argument("--output", type=str, required=True, help="Output CSV path")
+    rw_parser.add_argument("--report", type=str, default=None, help="Optional Markdown report path")
+    rw_parser.set_defaults(func=cmd_reweigh)
+
     args = parser.parse_args()
     
     if not args.command:
