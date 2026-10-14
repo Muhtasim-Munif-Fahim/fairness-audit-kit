@@ -14,6 +14,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 - **Intersectional Subgroup Fairness**: Evaluate the same group metrics on the cross of two sensitive attributes and surface the worst-off intersection
 - **Confusion Matrices by Group**: Per-group confusion matrices with configurable thresholds
 - **Synthetic Biased Dataset Generator**: Controlled label flip, feature bias, and correlation bias injection
+- **Treatment Equality / Accuracy Equality**: Per-group FN/FP ratios (Berk et al.) and accuracy gaps, with a `treatment` CLI
 - **Reweighing (bias mitigation)**: Kamiran–Calders pre-processing weights `w(g, y) = P(g)·P(y) / P(g, y)`. They make the label independent of the sensitive attribute, so every group has the same weighted base rate. Pass them as `sample_weight` when training
 - **Threshold Optimization**: Grid search over thresholds per group for fairness constraints (demographic parity, equal opportunity, equalized odds)
 - **Markdown Evaluation Reports**: Human-readable fairness evaluation reports
@@ -44,6 +45,7 @@ fairness-audit predict --model-path model.pkl --data-path data.csv --output pred
 fairness-audit evaluate --preds-path preds.csv --data-path data.csv --group-col sensitive_attr --output report.md
 fairness-audit evaluate --data preds.csv --group-col gender --group-col-2 race --output intersectional_report.md
 fairness-audit optimize --data-path preds.csv --score-col y_score --constraint equalized_odds --output opt_report.md
+fairness-audit treatment --data preds.csv --output treatment_report.md
 `
 
 ## Module Structure

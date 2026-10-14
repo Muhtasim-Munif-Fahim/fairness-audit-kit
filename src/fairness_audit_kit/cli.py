@@ -29,6 +29,8 @@ from fairness_audit_kit import (
     render_optimization_report,
     compute_reweighing_weights,
     render_reweighing_report,
+    compute_treatment_equality,
+    render_treatment_equality_report,
 )
 
 
@@ -234,6 +236,34 @@ def cmd_reweigh(args):
         print(f"Reweighing report saved to {args.report}")
 
 
+
+def cmd_treatment(args):
+    """Compute treatment equality (FN/FP) and accuracy equality gaps."""
+    df = pd.read_csv(args.data)
+    for col in (args.target_col, args.group_col):
+        if col not in df.columns:
+            raise SystemExit(f"Column '{col}' not found in {args.data}")
+    y_pred = df[args.pred_col].values if args.pred_col in df.columns else None
+    y_scores = df[args.score_col].values if args.score_col in df.columns else None
+    if y_pred is None and y_scores is None:
+        raise SystemExit(f"Need '{args.pred_col}' or '{args.score_col}' in {args.data}")
+    result = compute_treatment_equality(
+        df[args.target_col].values,
+        df[args.group_col].values,
+        y_pred=y_pred,
+        y_scores=y_scores,
+        threshold=args.threshold,
+    )
+    report = render_treatment_equality_report(result, title=args.title)
+    with open(args.output, "w") as f:
+        f.write(report)
+    te = result.treatment_equality_difference
+    te_s = "n/a" if te != te else f"{te:.4f}"
+    print(f"Treatment equality difference: {te_s}")
+    print(f"Accuracy equality difference: {result.accuracy_equality_difference:.4f}")
+    print(f"Report saved to {args.output}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="fairness-audit",
@@ -357,6 +387,21 @@ def main():
     rw_parser.add_argument("--output", type=str, required=True, help="Output CSV path")
     rw_parser.add_argument("--report", type=str, default=None, help="Optional Markdown report path")
     rw_parser.set_defaults(func=cmd_reweigh)
+
+    
+    te_parser = subparsers.add_parser(
+        "treatment",
+        help="Treatment equality (FN/FP ratio) and accuracy equality gaps",
+    )
+    te_parser.add_argument("--data", type=str, required=True, help="Data CSV with labels and predictions")
+    te_parser.add_argument("--target-col", type=str, default="target", help="True label column")
+    te_parser.add_argument("--pred-col", type=str, default="y_pred", help="Hard prediction column")
+    te_parser.add_argument("--score-col", type=str, default="y_score", help="Optional score column")
+    te_parser.add_argument("--group-col", type=str, default="sensitive_attr", help="Group column")
+    te_parser.add_argument("--threshold", type=float, default=0.5, help="Score threshold when pred-col missing")
+    te_parser.add_argument("--title", type=str, default="Treatment Equality Report")
+    te_parser.add_argument("--output", type=str, required=True, help="Output Markdown report path")
+    te_parser.set_defaults(func=cmd_treatment)
 
     args = parser.parse_args()
     

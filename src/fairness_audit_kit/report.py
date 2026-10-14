@@ -673,3 +673,52 @@ def render_reweighing_report(result, title: str = "Reweighing Report") -> str:
         "are unchanged.",
     ])
     return "\n".join(lines) + "\n"
+
+
+def render_treatment_equality_report(
+    result,
+    title: str = "Treatment Equality Report",
+) -> str:
+    """Markdown report for FN/FP treatment equality and accuracy equality."""
+    lines = [f"# {title}", ""]
+    lines.append(f"- Groups: **{result.n_groups}**")
+    lines.append(f"- Samples: **{result.n_samples}**")
+    if result.threshold is not None:
+        lines.append(f"- Score threshold: **{result.threshold:g}**")
+    te = result.treatment_equality_difference
+    te_str = "n/a" if te != te else f"{te:.4f}"
+    lines.append(f"- Treatment equality difference (max−min FN/FP): **{te_str}**")
+    lines.append(
+        f"- Accuracy equality difference (max−min accuracy): "
+        f"**{result.accuracy_equality_difference:.4f}**"
+    )
+    if result.infinite_ratio_groups:
+        lines.append(
+            "- Infinite FN/FP groups (FP=0, FN>0; excluded from TE gap): "
+            + ", ".join(f"`{g}`" for g in result.infinite_ratio_groups)
+        )
+    lines.append("")
+    lines.append("## Per-group FN/FP and accuracy")
+    lines.append("")
+    lines.append("| Group | Size | FN | FP | FN/FP | Accuracy |")
+    lines.append("|---|---:|---:|---:|---:|---:|")
+    for g in sorted(result.group_size.keys(), key=str):
+        ratio = result.fn_fp_ratios[g]
+        ratio_s = "inf" if ratio == float("inf") else f"{ratio:.4f}"
+        lines.append(
+            f"| {g} | {result.group_size[g]} | {result.false_negatives[g]} | "
+            f"{result.false_positives[g]} | {ratio_s} | {result.accuracies[g]:.4f} |"
+        )
+    lines.append("")
+    if result.fn_fp_ratio.pairwise_gaps:
+        lines.append("## Pairwise FN/FP gaps (finite ratios only)")
+        lines.append("")
+        lines.append("| Group A | Group B | Ratio A | Ratio B | |Gap| |")
+        lines.append("|---|---|---:|---:|---:|")
+        for gap in result.fn_fp_ratio.pairwise_gaps:
+            lines.append(
+                f"| {gap.group_a} | {gap.group_b} | {gap.rate_a:.4f} | "
+                f"{gap.rate_b:.4f} | {gap.abs_gap:.4f} |"
+            )
+        lines.append("")
+    return "\n".join(lines)
