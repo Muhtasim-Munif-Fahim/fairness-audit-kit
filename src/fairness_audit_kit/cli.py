@@ -10,6 +10,8 @@ import pandas as pd
 from pathlib import Path
 
 from fairness_audit_kit import (
+    EqualizedOddsPostprocessor,
+    render_equalized_odds_postprocessing_report,
     generate_biased_dataset,
     compute_fairness_metrics,
     compute_intersectional_metrics,
@@ -264,6 +266,42 @@ def cmd_treatment(args):
     print(f"Report saved to {args.output}")
 
 
+def cmd_postprocess(args):
+    """Fit Hardt et al. equalized-odds post-processing and write decisions."""
+    df = pd.read_csv(args.data)
+    for col in (args.target_col, args.group_col):
+        if col not in df.columns:
+            raise SystemExit(f"Column '{col}' not found in {args.data}")
+    y_pred = df[args.pred_col].values if args.pred_col in df.columns else None
+    y_scores = df[args.score_col].values if args.score_col in df.columns else None
+    if y_pred is None and y_scores is None:
+        raise SystemExit(f"Need '{args.pred_col}' or '{args.score_col}' in {args.data}")
+    post = EqualizedOddsPostprocessor(
+        constraint=args.constraint,
+        threshold=args.threshold,
+        fp_cost=args.fp_cost,
+        fn_cost=args.fn_cost,
+    ).fit(df[args.target_col].values, df[args.group_col].values, y_pred=y_pred, y_scores=y_scores)
+    result = post.result_
+    groups = df[args.group_col].values
+    out = df.copy()
+    out[args.prob_col] = post.positive_probability(groups, y_pred=y_pred, y_scores=y_scores)
+    out[args.output_col] = post.predict(groups, y_pred=y_pred, y_scores=y_scores, seed=args.seed)
+    out.to_csv(args.output, index=False)
+    if args.report:
+        with open(args.report, "w") as f:
+            f.write(render_equalized_odds_postprocessing_report(result))
+    print(f"TPR gap: {result.tpr_gap_before:.4f} -> {result.tpr_gap_after:.4f}")
+    print(f"FPR gap: {result.fpr_gap_before:.4f} -> {result.fpr_gap_after:.4f}")
+    print(
+        f"Accuracy: {result.accuracy_before:.4f} -> "
+        f"{result.expected_accuracy_after:.4f} (expected)"
+    )
+    print(f"Decisions saved to {args.output}")
+    if args.report:
+        print(f"Report saved to {args.report}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="fairness-audit",
@@ -402,6 +440,30 @@ def main():
     te_parser.add_argument("--title", type=str, default="Treatment Equality Report")
     te_parser.add_argument("--output", type=str, required=True, help="Output Markdown report path")
     te_parser.set_defaults(func=cmd_treatment)
+
+    pp_parser = subparsers.add_parser(
+        "postprocess",
+        help="Hardt et al. equalized-odds / equal-opportunity post-processing",
+    )
+    pp_parser.add_argument("--data", type=str, required=True, help="CSV with labels, groups and predictions")
+    pp_parser.add_argument("--target-col", type=str, default="target", help="True label column")
+    pp_parser.add_argument("--pred-col", type=str, default="y_pred", help="Hard prediction column")
+    pp_parser.add_argument("--score-col", type=str, default="y_score", help="Optional score column")
+    pp_parser.add_argument("--group-col", type=str, default="sensitive_attr", help="Group column")
+    pp_parser.add_argument("--threshold", type=float, default=0.5, help="Score threshold when pred-col missing")
+    pp_parser.add_argument(
+        "--constraint",
+        choices=["equalized_odds", "equal_opportunity"],
+        default="equalized_odds",
+    )
+    pp_parser.add_argument("--fp-cost", type=float, default=1.0, help="Cost of a false positive")
+    pp_parser.add_argument("--fn-cost", type=float, default=1.0, help="Cost of a false negative")
+    pp_parser.add_argument("--seed", type=int, default=None, help="Seed for randomized decisions")
+    pp_parser.add_argument("--prob-col", type=str, default="fair_positive_prob", help="Output probability column")
+    pp_parser.add_argument("--output-col", type=str, default="y_pred_fair", help="Output decision column")
+    pp_parser.add_argument("--output", type=str, required=True, help="Output CSV path")
+    pp_parser.add_argument("--report", type=str, default=None, help="Optional Markdown report path")
+    pp_parser.set_defaults(func=cmd_postprocess)
 
     args = parser.parse_args()
     

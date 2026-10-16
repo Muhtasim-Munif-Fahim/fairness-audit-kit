@@ -79,6 +79,7 @@ from fairness_audit_kit.report import (
     render_abroca_report,
     render_reweighing_report,
     render_treatment_equality_report,
+    render_equalized_odds_postprocessing_report,
 )
 
 from fairness_audit_kit.reweighing import (
@@ -92,7 +93,19 @@ from fairness_audit_kit.treatment_equality import (
     compute_treatment_equality,
 )
 
+from fairness_audit_kit.postprocessing import (
+    EqualizedOddsPostprocessingResult,
+    EqualizedOddsPostprocessor,
+    GroupRates,
+    fit_equalized_odds_postprocessing,
+)
+
 __all__ = [
+    "EqualizedOddsPostprocessingResult",
+    "EqualizedOddsPostprocessor",
+    "GroupRates",
+    "fit_equalized_odds_postprocessing",
+    "render_equalized_odds_postprocessing_report",
     "render_counterfactual_report",
     "score_with_sensitive_flip",
     "remap_sensitive_column",

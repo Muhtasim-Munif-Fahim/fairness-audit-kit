@@ -46,6 +46,7 @@ fairness-audit evaluate --preds-path preds.csv --data-path data.csv --group-col 
 fairness-audit evaluate --data preds.csv --group-col gender --group-col-2 race --output intersectional_report.md
 fairness-audit optimize --data-path preds.csv --score-col y_score --constraint equalized_odds --output opt_report.md
 fairness-audit treatment --data preds.csv --output treatment_report.md
+fairness-audit postprocess --data preds.csv --output fair_preds.csv --report postprocess.md
 `
 
 ## Module Structure
@@ -62,6 +63,7 @@ src/fairness_audit_kit/
 ├── intersectional.py    # Intersectional subgroup fairness
 ├── optimizer.py         # Threshold optimization
 ├── reweighing.py        # Kamiran-Calders reweighing (pre-processing mitigation)
+├── postprocessing.py    # Hardt et al. equalized-odds post-processing (LP)
 ├── generator.py         # Synthetic biased dataset generator
 ├── report.py            # Markdown report rendering
 └── cli.py               # Argparse CLI wiring
@@ -298,6 +300,28 @@ print(render_reweighing_report(res))
 Cells with no samples cannot be fixed by weighting. They are listed in
 `res.empty_cells`.
 
+### Equalized-Odds Post-processing (Hardt et al.)
+
+`EqualizedOddsPostprocessor` derives a randomized predictor from any frozen
+classifier's decisions and the group: each group keeps a positive with
+probability `P(Ỹ=1 | Ŷ=1, A=g)` and flips a negative with probability
+`P(Ỹ=1 | Ŷ=0, A=g)`. The mixing rates are found by a linear program that
+minimizes expected (cost-weighted) error subject to equal TPR and FPR
+(`constraint="equalized_odds"`) or equal TPR only (`"equal_opportunity"`).
+
+```python
+from fairness_audit_kit import EqualizedOddsPostprocessor, render_equalized_odds_postprocessing_report
+
+post = EqualizedOddsPostprocessor(constraint="equalized_odds").fit(y_val, g_val, y_scores=s_val)
+post.mixing_rates_                       # {"a": {0: p0, 1: p1}, "b": {...}}
+fair = post.predict(g_test, y_scores=s_test, seed=0)        # randomized 0/1
+prob = post.positive_probability(g_test, y_scores=s_test)   # deterministic P(Ỹ=1)
+print(render_equalized_odds_postprocessing_report(post.result_))
+```
+
+`result_` reports TPR/FPR gaps and accuracy before and after (exact
+expectations). Fit on a validation split, not the training data.
+
 ### Optimize Thresholds
 
 `python
@@ -434,6 +458,24 @@ Options:
   --target-col STR        Label column (default: target)
   --group-col STR         Group column (default: sensitive_attr)
   --weight-col STR        Output weight column (default: sample_weight)
+  --output PATH           Output CSV path (required)
+  --report PATH           Optional Markdown report path
+```
+
+### fairness-audit postprocess
+
+Fit Hardt et al. post-processing and write randomized fair decisions plus their probabilities.
+
+```bash
+fairness-audit postprocess --data preds.csv --output fair_preds.csv --report postprocess.md
+
+Options:
+  --data PATH             CSV with labels, groups and y_pred or y_score (required)
+  --constraint STR        equalized_odds (default) or equal_opportunity
+  --fp-cost / --fn-cost   Relative error costs (default: 1.0 / 1.0)
+  --threshold FLOAT       Score threshold when y_pred is absent (default: 0.5)
+  --seed INT              Seed for the randomized decisions
+  --prob-col / --output-col  Output columns (default: fair_positive_prob / y_pred_fair)
   --output PATH           Output CSV path (required)
   --report PATH           Optional Markdown report path
 ```
