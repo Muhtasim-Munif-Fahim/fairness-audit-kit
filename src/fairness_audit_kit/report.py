@@ -722,3 +722,60 @@ def render_treatment_equality_report(
             )
         lines.append("")
     return "\n".join(lines)
+
+
+def render_equalized_odds_postprocessing_report(
+    result,
+    title: str = "Equalized Odds Post-processing Report",
+) -> str:
+    """Markdown report for Hardt et al. derived-predictor mixing rates."""
+    label = "equalized odds" if result.constraint == "equalized_odds" else "equal opportunity"
+    lines = [f"# {title}", ""]
+    lines.append(f"- Constraint: **{label}** (Hardt, Price, and Srebro, NIPS 2016)")
+    lines.append(f"- Samples: **{result.n_samples}**")
+    if result.threshold is not None:
+        lines.append(f"- Score threshold: **{result.threshold:g}**")
+    lines.append(f"- Costs: FP **{result.fp_cost:g}**, FN **{result.fn_cost:g}**")
+    lines.append(
+        f"- TPR gap: **{result.tpr_gap_before:.4f} → {result.tpr_gap_after:.4f}**"
+    )
+    lines.append(
+        f"- FPR gap: **{result.fpr_gap_before:.4f} → {result.fpr_gap_after:.4f}**"
+    )
+    lines.append(
+        f"- Accuracy: **{result.accuracy_before:.4f} → "
+        f"{result.expected_accuracy_after:.4f}** (expected, randomized predictor)"
+    )
+    lines.append("")
+    lines.append("## Per-group mixing rates and rates")
+    lines.append("")
+    lines.append(
+        "| Group | Size | Base rate | P(Ỹ=1 given Ŷ=1) | P(Ỹ=1 given Ŷ=0) | "
+        "TPR before | TPR after | FPR before | FPR after |"
+    )
+    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+    for g in sorted(result.groups, key=str):
+        r = result.groups[g]
+        lines.append(
+            f"| {g} | {r.size} | {r.base_rate:.4f} | {r.p_keep_positive:.4f} | "
+            f"{r.p_flip_to_positive:.4f} | {r.tpr_before:.4f} | {r.tpr_after:.4f} | "
+            f"{r.fpr_before:.4f} | {r.fpr_after:.4f} |"
+        )
+    lines.append("")
+    lines.append("## Notes")
+    lines.append("")
+    lines.append(
+        "- The derived predictor only uses the original decision and the group: "
+        "each group keeps a positive with probability P(Ỹ=1 given Ŷ=1) and flips a "
+        "negative to positive with probability P(Ỹ=1 given Ŷ=0)."
+    )
+    lines.append(
+        "- Rates after post-processing are exact expectations; realized decisions "
+        "are randomized, so use a seed when reproducibility matters."
+    )
+    lines.append(
+        "- Using the sensitive attribute at decision time may be restricted in "
+        "some jurisdictions; review legal constraints before deployment."
+    )
+    lines.append("")
+    return "\n".join(lines)
