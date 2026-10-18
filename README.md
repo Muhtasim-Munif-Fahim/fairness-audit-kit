@@ -16,6 +16,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 - **Synthetic Biased Dataset Generator**: Controlled label flip, feature bias, and correlation bias injection
 - **Treatment Equality / Accuracy Equality**: Per-group FN/FP ratios (Berk et al.) and accuracy gaps, with a `treatment` CLI
 - **Reweighing (bias mitigation)**: Kamiran–Calders pre-processing weights `w(g, y) = P(g)·P(y) / P(g, y)`. They make the label independent of the sensitive attribute, so every group has the same weighted base rate. Pass them as `sample_weight` when training
+- **Disparate Impact Remover (feature repair)**: Feldman et al. (KDD 2015) quantile repair of numeric features toward the per-quantile median of the group distributions, with partial repair levels, rank preservation, before/after KS separability diagnostics and a `repair` CLI
 - **Threshold Optimization**: Grid search over thresholds per group for fairness constraints (demographic parity, equal opportunity, equalized odds)
 - **Markdown Evaluation Reports**: Human-readable fairness evaluation reports
 - **CLI Interface**: End-to-end generate -> predict -> evaluate -> report workflow
@@ -63,6 +64,7 @@ src/fairness_audit_kit/
 ├── intersectional.py    # Intersectional subgroup fairness
 ├── optimizer.py         # Threshold optimization
 ├── reweighing.py        # Kamiran-Calders reweighing (pre-processing mitigation)
+├── repair.py            # Feldman et al. disparate impact remover (feature repair)
 ├── postprocessing.py    # Hardt et al. equalized-odds post-processing (LP)
 ├── generator.py         # Synthetic biased dataset generator
 ├── report.py            # Markdown report rendering
@@ -277,6 +279,28 @@ report = render_calibration_report(result)
 
 `fairness-audit evaluate` appends this section when the CSV has a score column (default `y_score`).
 
+### Disparate Impact Remover (Feature Repair)
+
+`DisparateImpactRemover` (Feldman, Friedler, Moeller, Scheidegger &
+Venkatasubramanian, "Certifying and Removing Disparate Impact", KDD 2015)
+edits numeric features so their distribution no longer reveals the group.
+Each value moves toward the per-quantile median of the group distributions,
+`x' = (1 - lambda) x + lambda F_A^-1(F_g(x))` with
+`F_A^-1(u) = median_g F_g^-1(u)`. Order within each group is preserved, so
+features keep their predictive ranking. `repair_level=1` maps every group
+onto the same distribution; smaller values interpolate.
+
+```python
+from fairness_audit_kit import DisparateImpactRemover, render_disparate_impact_repair_report
+
+rem = DisparateImpactRemover(repair_level=1.0).fit(X_train, g_train)
+X_train_fair = rem.transform(X_train, g_train)
+X_test_fair = rem.transform(X_test, g_test)          # CDFs from the training groups
+diag = rem.diagnose(X_train, g_train)
+diag.ks_before, diag.ks_after                        # max pairwise KS per feature
+print(render_disparate_impact_repair_report(diag))
+```
+
 ### Reweighing (Pre-processing Mitigation)
 
 `compute_reweighing_weights` gives every `(group, label)` cell the weight
@@ -458,6 +482,23 @@ Options:
   --target-col STR        Label column (default: target)
   --group-col STR         Group column (default: sensitive_attr)
   --weight-col STR        Output weight column (default: sample_weight)
+  --output PATH           Output CSV path (required)
+  --report PATH           Optional Markdown report path
+```
+
+### fairness-audit repair
+
+Repair numeric features with the Feldman et al. disparate impact remover and write the repaired CSV.
+
+```bash
+fairness-audit repair --data train.csv --output train_repaired.csv --repair-level 0.8 --report repair.md
+
+Options:
+  --data PATH             Data CSV (required)
+  --group-col STR         Group column (default: sensitive_attr)
+  --features COL [...]    Columns to repair (default: all numeric except group / --exclude)
+  --exclude COL [...]     Never repaired by default (default: target y_pred y_score)
+  --repair-level FLOAT    lambda in [0, 1] (default: 1.0 = full repair)
   --output PATH           Output CSV path (required)
   --report PATH           Optional Markdown report path
 ```

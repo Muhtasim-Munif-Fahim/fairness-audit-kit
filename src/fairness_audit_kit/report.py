@@ -675,6 +675,46 @@ def render_reweighing_report(result, title: str = "Reweighing Report") -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_disparate_impact_repair_report(
+    result, title: str = "Disparate Impact Repair Report"
+) -> str:
+    """Render Feldman et al. feature-repair diagnostics as Markdown."""
+    lines = [
+        f"# {title}",
+        "",
+        "## Summary",
+        "",
+        f"- **Repair level (lambda)**: {result.repair_level:.2f}",
+        f"- **Groups**: "
+        + ", ".join(f"{g} (n={result.group_sizes[g]})" for g in result.groups),
+        f"- **Features repaired**: {len(result.features)}",
+        "",
+        "## Group Separability per Feature",
+        "",
+        "| Feature | Max KS before | Max KS after | Mean abs change | Ranks preserved |",
+        "|---------|---|---|---|---|",
+    ]
+    for f in result.features:
+        cell = str(f).replace("|", "\\|")
+        lines.append(
+            f"| {cell} | {result.ks_before[f]:.4f} | {result.ks_after[f]:.4f} | "
+            f"{result.mean_abs_change[f]:.4f} | {'yes' if result.rank_preserved.get(f, True) else 'no'} |"
+        )
+    lines.extend([
+        "",
+        "## Interpretation",
+        "",
+        "- **Disparate impact remover** (Feldman et al., 2015): each value is moved "
+        "toward the per-quantile median of the group distributions, "
+        "x' = (1 - lambda) x + lambda F_A^-1(F_g(x)). Order within each group is kept.",
+        "- **Max KS** is the largest two-sample Kolmogorov-Smirnov distance between "
+        "any two groups; 0 means the feature's distribution no longer reveals the group.",
+        "- Full repair can reduce accuracy; partial repair (lambda < 1) trades "
+        "separability against fidelity to the original data.",
+    ])
+    return "\n".join(lines) + "\n"
+
+
 def render_treatment_equality_report(
     result,
     title: str = "Treatment Equality Report",
