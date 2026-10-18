@@ -80,12 +80,21 @@ from fairness_audit_kit.report import (
     render_reweighing_report,
     render_treatment_equality_report,
     render_equalized_odds_postprocessing_report,
+    render_disparate_impact_repair_report,
 )
 
 from fairness_audit_kit.reweighing import (
     ReweighingResult,
     compute_reweighing_weights,
     fit_with_reweighing,
+)
+
+from fairness_audit_kit.repair import (
+    DisparateImpactRemover,
+    DisparateImpactRepairResult,
+    ks_distance,
+    max_pairwise_ks,
+    repair_disparate_impact,
 )
 
 from fairness_audit_kit.treatment_equality import (
@@ -166,6 +175,12 @@ __all__ = [
     "compute_reweighing_weights",
     "fit_with_reweighing",
     "render_reweighing_report",
+    "DisparateImpactRemover",
+    "DisparateImpactRepairResult",
+    "ks_distance",
+    "max_pairwise_ks",
+    "repair_disparate_impact",
+    "render_disparate_impact_repair_report",
     "TreatmentEqualityResult",
     "compute_treatment_equality",
     "render_treatment_equality_report",

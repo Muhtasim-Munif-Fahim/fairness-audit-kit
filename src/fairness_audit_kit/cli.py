@@ -33,6 +33,8 @@ from fairness_audit_kit import (
     render_reweighing_report,
     compute_treatment_equality,
     render_treatment_equality_report,
+    repair_disparate_impact,
+    render_disparate_impact_repair_report,
 )
 
 
@@ -239,6 +241,42 @@ def cmd_reweigh(args):
 
 
 
+def cmd_repair(args):
+    """Repair numeric features with the Feldman et al. disparate impact remover."""
+    df = pd.read_csv(args.data)
+    if args.group_col not in df.columns:
+        raise SystemExit(f"Column '{args.group_col}' not found in {args.data}")
+    if args.features:
+        missing = [c for c in args.features if c not in df.columns]
+        if missing:
+            raise SystemExit(f"Columns not found in {args.data}: {', '.join(missing)}")
+        features = list(args.features)
+    else:
+        skip = {args.group_col, *(args.exclude or [])}
+        features = [
+            c for c in df.columns
+            if c not in skip and pd.api.types.is_numeric_dtype(df[c])
+        ]
+    if not features:
+        raise SystemExit("No numeric features to repair")
+    try:
+        repaired, result = repair_disparate_impact(
+            df[features], df[args.group_col].values, repair_level=args.repair_level
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc))
+    out = df.copy()
+    out[features] = repaired[features]
+    out.to_csv(args.output, index=False)
+    print(f"Repaired {len(features)} feature(s) at lambda={args.repair_level:g}; saved to {args.output}")
+    for f in features:
+        print(f"  {f}: max KS {result.ks_before[f]:.4f} -> {result.ks_after[f]:.4f}")
+    if args.report:
+        with open(args.report, "w") as fh:
+            fh.write(render_disparate_impact_repair_report(result))
+        print(f"Repair report saved to {args.report}")
+
+
 def cmd_treatment(args):
     """Compute treatment equality (FN/FP) and accuracy equality gaps."""
     df = pd.read_csv(args.data)
@@ -425,6 +463,24 @@ def main():
     rw_parser.add_argument("--output", type=str, required=True, help="Output CSV path")
     rw_parser.add_argument("--report", type=str, default=None, help="Optional Markdown report path")
     rw_parser.set_defaults(func=cmd_reweigh)
+
+    rp_parser = subparsers.add_parser(
+        "repair", help="Feldman et al. disparate impact remover (feature repair)"
+    )
+    rp_parser.add_argument("--data", type=str, required=True, help="Data CSV")
+    rp_parser.add_argument("--group-col", type=str, default="sensitive_attr", help="Group column")
+    rp_parser.add_argument(
+        "--features", type=str, nargs="+", default=None,
+        help="Numeric columns to repair (default: every numeric column except the group and --exclude)",
+    )
+    rp_parser.add_argument(
+        "--exclude", type=str, nargs="+", default=["target", "y_pred", "y_score"],
+        help="Columns never repaired when --features is omitted (default: target y_pred y_score)",
+    )
+    rp_parser.add_argument("--repair-level", type=float, default=1.0, help="lambda in [0, 1] (default: 1.0)")
+    rp_parser.add_argument("--output", type=str, required=True, help="Output CSV path")
+    rp_parser.add_argument("--report", type=str, default=None, help="Optional Markdown report path")
+    rp_parser.set_defaults(func=cmd_repair)
 
     
     te_parser = subparsers.add_parser(
