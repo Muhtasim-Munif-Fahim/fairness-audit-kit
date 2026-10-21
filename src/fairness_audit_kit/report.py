@@ -819,3 +819,36 @@ def render_equalized_odds_postprocessing_report(
     )
     lines.append("")
     return "\n".join(lines)
+
+
+def render_reject_option_report(result, title: str = "Reject Option Classification Report") -> str:
+    """Markdown report for Kamiran et al. reject option classification."""
+    label = result.metric.replace("_", " ")
+    lines = [f"# {title}", ""]
+    lines.append("- Method: **reject option classification** (Kamiran, Karim and Zhang, ICDM 2012)")
+    lines.append(f"- Privileged group: **{result.privileged}**")
+    lines.append(f"- Samples: **{result.n_samples}**, grid points searched: **{result.grid_size}**")
+    lines.append(f"- Fairness constraint: **|{label} difference| <= {result.bound:g}**"
+                 + ("" if result.feasible else " (not achievable; closest pair used)"))
+    lines.append(
+        f"- Chosen threshold **τ = {result.threshold:.4f}**, margin **θ = {result.margin:.4f}** "
+        f"(critical region ({result.threshold - result.margin:.4f}, {result.threshold + result.margin:.4f}], "
+        f"{result.n_critical} sample(s))"
+    )
+    lines.append("")
+    lines.append(f"| Metric | Before (s > {result.baseline_threshold:g}) | After ROC |")
+    lines.append("|---|---:|---:|")
+    for key in ("statistical_parity", "average_odds", "equal_opportunity", "balanced_accuracy", "accuracy",
+                "selection_rate_unprivileged", "selection_rate_privileged"):
+        lines.append(f"| {key.replace('_', ' ')} | {result.before[key]:.4f} | {result.after[key]:.4f} |")
+    lines.append("")
+    lines.append("## Notes")
+    lines.append("")
+    lines.append(
+        "Inside the critical region the unprivileged group receives the favourable label and the "
+        "privileged group the unfavourable one; outside it decisions are `s > τ`. Fairness metrics are "
+        "unprivileged minus privileged. The rule uses the sensitive attribute at decision time "
+        "(disparate treatment), which may be restricted in some jurisdictions."
+    )
+    lines.append("")
+    return "\n".join(lines)

@@ -10,6 +10,8 @@ import pandas as pd
 from pathlib import Path
 
 from fairness_audit_kit import (
+    RejectOptionClassifier,
+    render_reject_option_report,
     EqualizedOddsPostprocessor,
     render_equalized_odds_postprocessing_report,
     generate_biased_dataset,
@@ -340,6 +342,39 @@ def cmd_postprocess(args):
         print(f"Report saved to {args.report}")
 
 
+def cmd_reject_option(args):
+    """Fit Kamiran et al. reject option classification and write decisions."""
+    df = pd.read_csv(args.data)
+    for col in (args.target_col, args.group_col, args.score_col):
+        if col not in df.columns:
+            raise SystemExit(f"Column '{col}' not found in {args.data}")
+    try:
+        roc = RejectOptionClassifier(
+            args.privileged,
+            metric=args.metric,
+            bound=args.bound,
+            n_thresholds=args.n_thresholds,
+            n_margins=args.n_margins,
+        ).fit(df[args.target_col].values, df[args.group_col].values, df[args.score_col].values)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    result = roc.result_
+    out = df.copy()
+    out[args.output_col] = roc.predict(df[args.group_col].values, df[args.score_col].values)
+    out.to_csv(args.output, index=False)
+    if args.report:
+        with open(args.report, "w") as f:
+            f.write(render_reject_option_report(result))
+    m = args.metric
+    print(f"Threshold {result.threshold:.4f}, margin {result.margin:.4f} ({result.n_critical} in critical region)")
+    print(f"{m.replace('_', ' ')} difference: {result.before[m]:.4f} -> {result.after[m]:.4f}"
+          + ("" if result.feasible else " (bound not achievable)"))
+    print(f"Balanced accuracy: {result.before['balanced_accuracy']:.4f} -> {result.after['balanced_accuracy']:.4f}")
+    print(f"Decisions saved to {args.output}")
+    if args.report:
+        print(f"Report saved to {args.report}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="fairness-audit",
@@ -520,6 +555,28 @@ def main():
     pp_parser.add_argument("--output", type=str, required=True, help="Output CSV path")
     pp_parser.add_argument("--report", type=str, default=None, help="Optional Markdown report path")
     pp_parser.set_defaults(func=cmd_postprocess)
+
+    roc_parser = subparsers.add_parser(
+        "reject-option",
+        help="Kamiran et al. reject option classification (score post-processing)",
+    )
+    roc_parser.add_argument("--data", type=str, required=True, help="CSV with labels, groups and scores")
+    roc_parser.add_argument("--target-col", type=str, default="target", help="True label column")
+    roc_parser.add_argument("--score-col", type=str, default="y_score", help="Score column in [0, 1]")
+    roc_parser.add_argument("--group-col", type=str, default="sensitive_attr", help="Group column")
+    roc_parser.add_argument("--privileged", type=str, required=True, help="Group value treated as privileged")
+    roc_parser.add_argument(
+        "--metric",
+        choices=["statistical_parity", "average_odds", "equal_opportunity"],
+        default="statistical_parity",
+    )
+    roc_parser.add_argument("--bound", type=float, default=0.05, help="Allowed |metric| (default 0.05)")
+    roc_parser.add_argument("--n-thresholds", type=int, default=100)
+    roc_parser.add_argument("--n-margins", type=int, default=50)
+    roc_parser.add_argument("--output-col", type=str, default="y_pred_roc", help="Output decision column")
+    roc_parser.add_argument("--output", type=str, required=True, help="Output CSV path")
+    roc_parser.add_argument("--report", type=str, default=None, help="Optional Markdown report path")
+    roc_parser.set_defaults(func=cmd_reject_option)
 
     args = parser.parse_args()
     
