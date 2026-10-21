@@ -17,6 +17,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 - **Treatment Equality / Accuracy Equality**: Per-group FN/FP ratios (Berk et al.) and accuracy gaps, with a `treatment` CLI
 - **Reweighing (bias mitigation)**: Kamiran–Calders pre-processing weights `w(g, y) = P(g)·P(y) / P(g, y)`. They make the label independent of the sensitive attribute, so every group has the same weighted base rate. Pass them as `sample_weight` when training
 - **Disparate Impact Remover (feature repair)**: Feldman et al. (KDD 2015) quantile repair of numeric features toward the per-quantile median of the group distributions, with partial repair levels, rank preservation, before/after KS separability diagnostics and a `repair` CLI
+- **Reject Option Classification (post-processing)**: Kamiran, Karim & Zhang (ICDM 2012). Inside a critical band `(τ−θ, τ+θ]` around the threshold, the unprivileged group gets the favourable label and the privileged group the unfavourable one. `τ` and `θ` are grid-searched for the best balanced accuracy subject to `|statistical parity / average odds / equal opportunity difference| ≤ bound`. Matches AIF360's `RejectOptionClassification`; available as the `reject-option` CLI
 - **Threshold Optimization**: Grid search over thresholds per group for fairness constraints (demographic parity, equal opportunity, equalized odds)
 - **Markdown Evaluation Reports**: Human-readable fairness evaluation reports
 - **CLI Interface**: End-to-end generate -> predict -> evaluate -> report workflow
@@ -345,6 +346,29 @@ print(render_equalized_odds_postprocessing_report(post.result_))
 
 `result_` reports TPR/FPR gaps and accuracy before and after (exact
 expectations). Fit on a validation split, not the training data.
+
+### Reject Option Classification (Kamiran et al.)
+
+A deterministic post-processing step for a scored classifier. Decisions near the threshold are where the model is least sure, so inside the band `(τ−θ, τ+θ]` the unprivileged group is given the favourable label and the privileged group the unfavourable one. Outside the band, `ŷ = 1[s > τ]`.
+
+The grid follows AIF360. `τ` takes `n_thresholds` values in `[0.01, 0.99]`, and for each `τ`, `θ` takes `n_margins` values in `[0, min(τ, 1−τ)]`. The chosen pair maximises balanced accuracy subject to `|metric| ≤ bound`. Supported metrics are `statistical_parity`, `average_odds` and `equal_opportunity`, each computed as unprivileged minus privileged. The chosen `(τ, θ)` and the resulting decisions match aif360 0.6.1 exactly: this was checked offline on 36 problems, and reference values are pinned in the tests.
+
+```python
+from fairness_audit_kit import RejectOptionClassifier, render_reject_option_report
+
+roc = RejectOptionClassifier(privileged="male", metric="average_odds", bound=0.05).fit(y_val, g_val, s_val)
+roc.threshold_, roc.margin_
+y_fair = roc.predict(g_test, s_test)
+res = roc.result_          # before/after SPD, AOD, EOD, balanced accuracy, accuracy; Pareto frontier
+print(render_reject_option_report(res))
+```
+
+```bash
+fairness-audit reject-option --data scores.csv --privileged 1 --metric statistical_parity \
+    --bound 0.05 --output roc_decisions.csv --report roc.md
+```
+
+Note that the rule uses the sensitive attribute at decision time, which is disparate treatment and may be restricted in some domains.
 
 ### Optimize Thresholds
 

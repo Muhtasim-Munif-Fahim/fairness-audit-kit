@@ -81,12 +81,20 @@ from fairness_audit_kit.report import (
     render_treatment_equality_report,
     render_equalized_odds_postprocessing_report,
     render_disparate_impact_repair_report,
+    render_reject_option_report,
 )
 
 from fairness_audit_kit.reweighing import (
     ReweighingResult,
     compute_reweighing_weights,
     fit_with_reweighing,
+)
+
+from fairness_audit_kit.reject_option import (
+    RejectOptionClassifier,
+    RejectOptionResult,
+    fit_reject_option_classification,
+    reject_option_predict,
 )
 
 from fairness_audit_kit.repair import (
@@ -177,6 +185,11 @@ __all__ = [
     "render_reweighing_report",
     "DisparateImpactRemover",
     "DisparateImpactRepairResult",
+    "RejectOptionClassifier",
+    "RejectOptionResult",
+    "fit_reject_option_classification",
+    "reject_option_predict",
+    "render_reject_option_report",
     "ks_distance",
     "max_pairwise_ks",
     "repair_disparate_impact",
