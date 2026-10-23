@@ -852,3 +852,32 @@ def render_reject_option_report(result, title: str = "Reject Option Classificati
     )
     lines.append("")
     return "\n".join(lines)
+
+
+def render_calibrated_eq_odds_report(result, title: str = "Calibrated Equalized Odds Report") -> str:
+    """Markdown report for Pleiss et al. calibrated equalized odds post-processing."""
+    lines = [f"# {title}", ""]
+    lines.append("- Method: **calibrated equalized odds** (Pleiss, Raghavan, Wu, Kleinberg and Weinberger, NIPS 2017)")
+    lines.append(f"- Cost constraint: **{result.cost_constraint}**, samples: **{result.n_samples}**")
+    lines.append(f"- Target (worst-group) generalized cost: **{result.target_cost:.4f}**"
+                 + ("" if result.feasible else " (not reachable by every group; mix rate clipped at 1)"))
+    lines.append(f"- Cost gap across groups: **{result.cost_gap_before:.4f} -> {result.cost_gap_after:.4f}** (expected)")
+    lines.append("")
+    lines.append("| Group | n | Base rate | Mix rate α | Cost before | Cost after | GFPR before | GFPR after | GFNR before | GFNR after |")
+    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+    for g in result.groups:
+        lines.append(
+            f"| {g.group} | {g.size} | {g.base_rate:.4f} | {g.mix_rate:.4f} | {g.cost_before:.4f} | "
+            f"{g.cost_after:.4f} | {g.gfpr_before:.4f} | {g.gfpr_after:.4f} | {g.gfnr_before:.4f} | {g.gfnr_after:.4f} |"
+        )
+    lines.append("")
+    lines.append("## Notes")
+    lines.append("")
+    lines.append(
+        "A fraction α of each lower-cost group's scores is replaced with that group's base rate. "
+        "This keeps scores calibrated within each group and raises the group's expected generalized cost "
+        "to the worst group's. Values after mixing are expectations over the randomization. The method "
+        "uses the sensitive attribute at decision time and trades accuracy for parity."
+    )
+    lines.append("")
+    return "\n".join(lines)

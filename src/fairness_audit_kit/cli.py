@@ -12,6 +12,7 @@ from pathlib import Path
 from fairness_audit_kit import (
     RejectOptionClassifier,
     render_reject_option_report,
+    render_calibrated_eq_odds_report,
     EqualizedOddsPostprocessor,
     render_equalized_odds_postprocessing_report,
     generate_biased_dataset,
@@ -342,6 +343,36 @@ def cmd_postprocess(args):
         print(f"Report saved to {args.report}")
 
 
+def cmd_calibrated_eq_odds(args):
+    """Fit Pleiss et al. calibrated equalized odds and write post-processed scores."""
+    from fairness_audit_kit.calibrated_eq_odds import CalibratedEqOddsPostprocessor
+
+    df = pd.read_csv(args.data)
+    for col in (args.target_col, args.group_col, args.score_col):
+        if col not in df.columns:
+            raise SystemExit(f"Column '{col}' not found in {args.data}")
+    try:
+        ceo = CalibratedEqOddsPostprocessor(
+            cost_constraint=args.cost_constraint, threshold=args.threshold, random_state=args.seed
+        ).fit(df[args.target_col].values, df[args.group_col].values, df[args.score_col].values)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    result = ceo.result_
+    out = df.copy()
+    scores = ceo.predict_proba(df[args.group_col].values, df[args.score_col].values)
+    out[args.output_col + "_score"] = scores
+    out[args.output_col] = (scores >= args.threshold).astype(int)
+    out.to_csv(args.output, index=False)
+    if args.report:
+        with open(args.report, "w") as f:
+            f.write(render_calibrated_eq_odds_report(result))
+    for g in result.groups:
+        print(f"group {g.group}: mix rate {g.mix_rate:.4f}, cost {g.cost_before:.4f} -> {g.cost_after:.4f}")
+    print(f"Cost gap: {result.cost_gap_before:.4f} -> {result.cost_gap_after:.4f}"
+          + ("" if result.feasible else " (target not reachable for every group)"))
+    print(f"Decisions saved to {args.output}")
+
+
 def cmd_reject_option(args):
     """Fit Kamiran et al. reject option classification and write decisions."""
     df = pd.read_csv(args.data)
@@ -577,6 +608,22 @@ def main():
     roc_parser.add_argument("--output", type=str, required=True, help="Output CSV path")
     roc_parser.add_argument("--report", type=str, default=None, help="Optional Markdown report path")
     roc_parser.set_defaults(func=cmd_reject_option)
+
+    ceo_parser = subparsers.add_parser(
+        "calibrated-eq-odds",
+        help="Pleiss et al. calibrated equalized odds (score post-processing)",
+    )
+    ceo_parser.add_argument("--data", type=str, required=True, help="CSV with labels, groups and scores")
+    ceo_parser.add_argument("--target-col", type=str, default="target", help="True label column")
+    ceo_parser.add_argument("--score-col", type=str, default="y_score", help="Calibrated score column in [0, 1]")
+    ceo_parser.add_argument("--group-col", type=str, default="sensitive_attr", help="Group column")
+    ceo_parser.add_argument("--cost-constraint", choices=["weighted", "fpr", "fnr"], default="weighted")
+    ceo_parser.add_argument("--threshold", type=float, default=0.5, help="Decision threshold (score >= t)")
+    ceo_parser.add_argument("--seed", type=int, default=0, help="Seed for the randomized mixing")
+    ceo_parser.add_argument("--output-col", type=str, default="y_pred_ceo", help="Output decision column")
+    ceo_parser.add_argument("--output", type=str, required=True, help="Output CSV path")
+    ceo_parser.add_argument("--report", type=str, default=None, help="Optional Markdown report path")
+    ceo_parser.set_defaults(func=cmd_calibrated_eq_odds)
 
     args = parser.parse_args()
     

@@ -82,6 +82,7 @@ from fairness_audit_kit.report import (
     render_equalized_odds_postprocessing_report,
     render_disparate_impact_repair_report,
     render_reject_option_report,
+    render_calibrated_eq_odds_report,
 )
 
 from fairness_audit_kit.reweighing import (
@@ -95,6 +96,15 @@ from fairness_audit_kit.reject_option import (
     RejectOptionResult,
     fit_reject_option_classification,
     reject_option_predict,
+)
+
+from fairness_audit_kit.calibrated_eq_odds import (
+    CalibratedEqOddsPostprocessor,
+    CalibratedEqOddsResult,
+    CalibratedGroupStats,
+    fit_calibrated_eq_odds,
+    generalized_cost,
+    generalized_rates,
 )
 
 from fairness_audit_kit.repair import (
@@ -190,6 +200,13 @@ __all__ = [
     "fit_reject_option_classification",
     "reject_option_predict",
     "render_reject_option_report",
+    "CalibratedEqOddsPostprocessor",
+    "CalibratedEqOddsResult",
+    "CalibratedGroupStats",
+    "fit_calibrated_eq_odds",
+    "generalized_cost",
+    "generalized_rates",
+    "render_calibrated_eq_odds_report",
     "ks_distance",
     "max_pairwise_ks",
     "repair_disparate_impact",

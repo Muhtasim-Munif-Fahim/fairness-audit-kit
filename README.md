@@ -18,6 +18,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 - **Reweighing (bias mitigation)**: Kamiran–Calders pre-processing weights `w(g, y) = P(g)·P(y) / P(g, y)`. They make the label independent of the sensitive attribute, so every group has the same weighted base rate. Pass them as `sample_weight` when training
 - **Disparate Impact Remover (feature repair)**: Feldman et al. (KDD 2015) quantile repair of numeric features toward the per-quantile median of the group distributions, with partial repair levels, rank preservation, before/after KS separability diagnostics and a `repair` CLI
 - **Reject Option Classification (post-processing)**: Kamiran, Karim & Zhang (ICDM 2012). Inside a critical band `(τ−θ, τ+θ]` around the threshold, the unprivileged group gets the favourable label and the privileged group the unfavourable one. `τ` and `θ` are grid-searched for the best balanced accuracy subject to `|statistical parity / average odds / equal opportunity difference| ≤ bound`. Matches AIF360's `RejectOptionClassification`; available as the `reject-option` CLI
+- **Calibrated Equalized Odds (post-processing)**: Pleiss et al. (NIPS 2017). A random fraction `α_g` of each lower-cost group's calibrated scores is replaced with that group's base rate. This keeps every group calibrated and equalises the generalized cost (`fpr`, `fnr` or `weighted` mix of GFPR/GFNR) to the worst group's. For two groups the mix rates match AIF360's `CalibratedEqOddsPostprocessing`, and multiple groups are supported. Available as the `calibrated-eq-odds` CLI
 - **Threshold Optimization**: Grid search over thresholds per group for fairness constraints (demographic parity, equal opportunity, equalized odds)
 - **Markdown Evaluation Reports**: Human-readable fairness evaluation reports
 - **CLI Interface**: End-to-end generate -> predict -> evaluate -> report workflow
@@ -67,6 +68,7 @@ src/fairness_audit_kit/
 ├── reweighing.py        # Kamiran-Calders reweighing (pre-processing mitigation)
 ├── repair.py            # Feldman et al. disparate impact remover (feature repair)
 ├── postprocessing.py    # Hardt et al. equalized-odds post-processing (LP)
+├── calibrated_eq_odds.py # Pleiss et al. calibrated equalized odds
 ├── generator.py         # Synthetic biased dataset generator
 ├── report.py            # Markdown report rendering
 └── cli.py               # Argparse CLI wiring
@@ -279,6 +281,27 @@ report = render_calibration_report(result)
 ```
 
 `fairness-audit evaluate` appends this section when the CSV has a score column (default `y_score`).
+
+### Calibrated Equalized Odds (Pleiss et al.)
+
+Calibration and equalized odds conflict. Calibrated equalized odds keeps scores calibrated within each group and equalises a single generalized cost: `c_g = a·GFPR_g·(1-μ_g) + b·GFNR_g·μ_g`. Here `GFPR` is the mean score on negatives and `GFNR` the mean `1 - score` on positives. To raise a cheaper group's expected cost to the worst group's, a fraction `α_g = (c_max - c_g) / (c̃_g - c_g)` of its scores is replaced with its base rate `μ_g`. In that formula `c̃_g` is the cost of the trivial classifier `s ≡ μ_g`.
+
+```python
+from fairness_audit_kit import CalibratedEqOddsPostprocessor, render_calibrated_eq_odds_report
+
+ceo = CalibratedEqOddsPostprocessor(cost_constraint="weighted", random_state=0).fit(y_val, g_val, s_val)
+ceo.mix_rates_                         # {'0': 0.0, '1': 0.37}
+scores = ceo.predict_proba(g_test, s_test)   # randomized, still calibrated per group
+labels = ceo.predict(g_test, s_test)         # scores >= 0.5
+ceo.expected_scores(g_test, s_test)          # deterministic expectation
+print(render_calibrated_eq_odds_report(ceo.result_))
+```
+
+```bash
+fairness-audit calibrated-eq-odds --data scores.csv --cost-constraint fnr --output ceo.csv --report ceo.md
+```
+
+If a group's trivial cost is below the target, `α_g` is clipped to 1 and `feasible` is reported as `False`.
 
 ### Disparate Impact Remover (Feature Repair)
 
