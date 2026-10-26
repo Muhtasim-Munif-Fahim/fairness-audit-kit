@@ -19,6 +19,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 - **Disparate Impact Remover (feature repair)**: Feldman et al. (KDD 2015) quantile repair of numeric features toward the per-quantile median of the group distributions, with partial repair levels, rank preservation, before/after KS separability diagnostics and a `repair` CLI
 - **Reject Option Classification (post-processing)**: Kamiran, Karim & Zhang (ICDM 2012). Inside a critical band `(τ−θ, τ+θ]` around the threshold, the unprivileged group gets the favourable label and the privileged group the unfavourable one. `τ` and `θ` are grid-searched for the best balanced accuracy subject to `|statistical parity / average odds / equal opportunity difference| ≤ bound`. Matches AIF360's `RejectOptionClassification`; available as the `reject-option` CLI
 - **Calibrated Equalized Odds (post-processing)**: Pleiss et al. (NIPS 2017). A random fraction `α_g` of each lower-cost group's calibrated scores is replaced with that group's base rate. This keeps every group calibrated and equalises the generalized cost (`fpr`, `fnr` or `weighted` mix of GFPR/GFNR) to the worst group's. For two groups the mix rates match AIF360's `CalibratedEqOddsPostprocessing`, and multiple groups are supported. Available as the `calibrated-eq-odds` CLI
+- **Individual Fairness (consistency + Lipschitz audit)**: Zemel et al. (ICML 2013) kNN consistency `1 − mean|ŷ_i − mean_{kNN} ŷ_j|` overall and per group (with `include_self=True` matching AIF360's `consistency_score`), plus a Dwork et al. Lipschitz audit that flags neighbour pairs with `|f(x) − f(x')| > L·d(x, x')` and lists the worst offenders. Available as the `individual` CLI
 - **Threshold Optimization**: Grid search over thresholds per group for fairness constraints (demographic parity, equal opportunity, equalized odds)
 - **Markdown Evaluation Reports**: Human-readable fairness evaluation reports
 - **CLI Interface**: End-to-end generate -> predict -> evaluate -> report workflow
@@ -548,6 +549,32 @@ Options:
   --repair-level FLOAT    lambda in [0, 1] (default: 1.0 = full repair)
   --output PATH           Output CSV path (required)
   --report PATH           Optional Markdown report path
+```
+
+### fairness-audit individual
+
+Audit individual fairness: do similar people (in the non-sensitive feature space) get similar decisions?
+
+```bash
+fairness-audit individual --data preds.csv --output individual.md --n-neighbors 5 --lipschitz 0.5
+
+Options:
+  --data PATH             CSV with features and predictions (required)
+  --features COL [...]    Similarity features (default: numeric columns except target/pred/score/group/--exclude)
+  --use-scores            Audit --score-col instead of --pred-col
+  --n-neighbors INT       k for the kNN neighbourhood (default: 5)
+  --include-self          AIF360 convention (neighbourhood includes the point)
+  --no-standardize        Use raw feature scales instead of z-scores
+  --lipschitz FLOAT       Also report pairs violating |f(x)-f(x')| <= L*d(x,x')
+  --output PATH           Markdown report path (required)
+```
+
+```python
+from fairness_audit_kit import compute_individual_fairness, consistency_score
+
+consistency_score(X, y_pred, n_neighbors=5)
+res = compute_individual_fairness(X, y_score, groups, lipschitz_constant=0.5)
+res.group_consistency, res.violation_rate, res.worst_violations[:3]
 ```
 
 ### fairness-audit postprocess

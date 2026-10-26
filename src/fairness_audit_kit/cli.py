@@ -10,6 +10,8 @@ import pandas as pd
 from pathlib import Path
 
 from fairness_audit_kit import (
+    compute_individual_fairness,
+    render_individual_fairness_report,
     RejectOptionClassifier,
     render_reject_option_report,
     render_calibrated_eq_odds_report,
@@ -307,6 +309,50 @@ def cmd_treatment(args):
     print(f"Report saved to {args.output}")
 
 
+def cmd_individual(args):
+    """kNN consistency and Lipschitz audit of individual fairness."""
+    df = pd.read_csv(args.data)
+    out_col = args.score_col if args.use_scores else args.pred_col
+    needed = [out_col] + ([args.group_col] if args.group_col else [])
+    for col in needed:
+        if col not in df.columns:
+            raise SystemExit(f"Column '{col}' not found in {args.data}")
+    if args.features:
+        missing = [c for c in args.features if c not in df.columns]
+        if missing:
+            raise SystemExit(f"Feature column(s) not found in {args.data}: {', '.join(missing)}")
+        features = list(args.features)
+    else:
+        excluded = set(args.exclude) | {args.pred_col, args.score_col, args.target_col, args.group_col}
+        features = [
+            c for c in df.columns
+            if c not in excluded and pd.api.types.is_numeric_dtype(df[c])
+        ]
+    if not features:
+        raise SystemExit("No numeric feature columns to measure similarity on")
+    try:
+        result = compute_individual_fairness(
+            df[features].values,
+            df[out_col].values,
+            df[args.group_col].values if args.group_col else None,
+            n_neighbors=args.n_neighbors,
+            include_self=args.include_self,
+            standardize=not args.no_standardize,
+            lipschitz_constant=args.lipschitz,
+            top_violations=args.top,
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    report = render_individual_fairness_report(result, title=args.title)
+    with open(args.output, "w") as f:
+        f.write(report)
+    print(f"Consistency ({len(features)} features, k={args.n_neighbors}): {result.consistency:.4f}")
+    print(f"Group consistency gap: {result.consistency_gap:.4f}")
+    if result.violation_rate is not None:
+        print(f"Lipschitz (L={args.lipschitz:g}) violation rate: {result.violation_rate:.4f} of {result.n_pairs} pairs")
+    print(f"Report saved to {args.output}")
+
+
 def cmd_postprocess(args):
     """Fit Hardt et al. equalized-odds post-processing and write decisions."""
     df = pd.read_csv(args.data)
@@ -562,6 +608,27 @@ def main():
     te_parser.add_argument("--title", type=str, default="Treatment Equality Report")
     te_parser.add_argument("--output", type=str, required=True, help="Output Markdown report path")
     te_parser.set_defaults(func=cmd_treatment)
+
+    ind_parser = subparsers.add_parser(
+        "individual",
+        help="Individual fairness: kNN consistency (Zemel et al.) and Lipschitz violations",
+    )
+    ind_parser.add_argument("--data", type=str, required=True, help="CSV with features and predictions")
+    ind_parser.add_argument("--features", nargs="+", default=None, help="Similarity feature columns (default: numeric non-excluded)")
+    ind_parser.add_argument("--exclude", nargs="+", default=[], help="Extra columns to leave out of the similarity metric")
+    ind_parser.add_argument("--target-col", type=str, default="target", help="True label column (never a feature)")
+    ind_parser.add_argument("--pred-col", type=str, default="y_pred", help="Hard prediction column")
+    ind_parser.add_argument("--score-col", type=str, default="y_score", help="Score column (with --use-scores)")
+    ind_parser.add_argument("--use-scores", action="store_true", help="Audit scores instead of hard predictions")
+    ind_parser.add_argument("--group-col", type=str, default="sensitive_attr", help="Group column ('' for none)")
+    ind_parser.add_argument("--n-neighbors", type=int, default=5)
+    ind_parser.add_argument("--include-self", action="store_true", help="AIF360 convention: neighbourhood includes the point")
+    ind_parser.add_argument("--no-standardize", action="store_true", help="Use raw feature scales")
+    ind_parser.add_argument("--lipschitz", type=float, default=None, help="Also audit |f(x)-f(x')| <= L*d(x,x')")
+    ind_parser.add_argument("--top", type=int, default=10, help="Worst violations to list")
+    ind_parser.add_argument("--title", type=str, default="Individual Fairness Report")
+    ind_parser.add_argument("--output", type=str, required=True, help="Output Markdown report path")
+    ind_parser.set_defaults(func=cmd_individual)
 
     pp_parser = subparsers.add_parser(
         "postprocess",
