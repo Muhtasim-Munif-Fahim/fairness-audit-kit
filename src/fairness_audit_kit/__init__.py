@@ -230,3 +230,11 @@ from fairness_audit_kit.abroca import (
     AbrocaResult,
     compute_abroca,
 )
+
+from fairness_audit_kit.individual import (
+    IndividualFairnessResult,
+    LipschitzViolation,
+    compute_individual_fairness,
+    consistency_score,
+    render_individual_fairness_report,
+)
