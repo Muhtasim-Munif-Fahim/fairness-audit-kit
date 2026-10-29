@@ -20,6 +20,7 @@ A model fairness and bias evaluation toolkit for machine learning models.
 - **Reject Option Classification (post-processing)**: Kamiran, Karim & Zhang (ICDM 2012). Inside a critical band `(τ−θ, τ+θ]` around the threshold, the unprivileged group gets the favourable label and the privileged group the unfavourable one. `τ` and `θ` are grid-searched for the best balanced accuracy subject to `|statistical parity / average odds / equal opportunity difference| ≤ bound`. Matches AIF360's `RejectOptionClassification`; available as the `reject-option` CLI
 - **Calibrated Equalized Odds (post-processing)**: Pleiss et al. (NIPS 2017). A random fraction `α_g` of each lower-cost group's calibrated scores is replaced with that group's base rate. This keeps every group calibrated and equalises the generalized cost (`fpr`, `fnr` or `weighted` mix of GFPR/GFNR) to the worst group's. For two groups the mix rates match AIF360's `CalibratedEqOddsPostprocessing`, and multiple groups are supported. Available as the `calibrated-eq-odds` CLI
 - **Individual Fairness (consistency + Lipschitz audit)**: Zemel et al. (ICML 2013) kNN consistency `1 − mean|ŷ_i − mean_{kNN} ŷ_j|` overall and per group (with `include_self=True` matching AIF360's `consistency_score`), plus a Dwork et al. Lipschitz audit that flags neighbour pairs with `|f(x) − f(x')| > L·d(x, x')` and lists the worst offenders. Available as the `individual` CLI
+- **Exponentiated-Gradient Reduction (in-processing)**: Agarwal et al. (ICML 2018). Trains any `sample_weight`-aware classifier (default logistic regression) under demographic-parity or equalized-odds moment constraints `|γ| ≤ ε` by playing an exponentiated-gradient λ-player against cost-sensitive best responses. Stops on the duality gap, then a small LP picks a sparse randomized mixture. Matches fairlearn's `ExponentiatedGradient` on the bundled synthetic data; available as the `reduce` CLI
 - **Threshold Optimization**: Grid search over thresholds per group for fairness constraints (demographic parity, equal opportunity, equalized odds)
 - **Markdown Evaluation Reports**: Human-readable fairness evaluation reports
 - **CLI Interface**: End-to-end generate -> predict -> evaluate -> report workflow
@@ -371,6 +372,26 @@ print(render_equalized_odds_postprocessing_report(post.result_))
 `result_` reports TPR/FPR gaps and accuracy before and after (exact
 expectations). Fit on a validation split, not the training data.
 
+### Exponentiated-Gradient Reduction (Agarwal et al.)
+
+In-processing mitigation: the model itself is trained under the constraint.
+Each round, the λ-player raises the price of violated moments and the base
+learner solves a reweighted (cost-sensitive) classification problem. The
+output is a randomized mixture of base classifiers that only needs features
+at prediction time.
+
+```python
+from fairness_audit_kit import ExponentiatedGradient, render_exponentiated_gradient_report
+
+eg = ExponentiatedGradient(constraint="equalized_odds", eps=0.02).fit(X, y, sensitive_features=groups)
+eg.predict_proba(X_test)            # P(ŷ = 1) under the mixture
+eg.predict(X_test, random_state=0)  # randomized decisions
+eg.result_.error_before, eg.result_.error_after, eg.result_.violation_after
+print(render_exponentiated_gradient_report(eg.result_))
+```
+
+Pass any estimator supporting `fit(X, y, sample_weight=...)` via `estimator=`.
+
 ### Reject Option Classification (Kamiran et al.)
 
 A deterministic post-processing step for a scored classifier. Decisions near the threshold are where the model is least sure, so inside the band `(τ−θ, τ+θ]` the unprivileged group is given the favourable label and the privileged group the unfavourable one. Outside the band, `ŷ = 1[s > τ]`.
@@ -575,6 +596,22 @@ from fairness_audit_kit import compute_individual_fairness, consistency_score
 consistency_score(X, y_pred, n_neighbors=5)
 res = compute_individual_fairness(X, y_score, groups, lipschitz_constant=0.5)
 res.group_consistency, res.violation_rate, res.worst_violations[:3]
+```
+
+### fairness-audit reduce
+
+Train a fair randomized classifier with the exponentiated-gradient reduction:
+
+```bash
+fairness-audit reduce --data train.csv --constraint equalized_odds --eps 0.02 \
+  --output fair_preds.csv --report reduce.md
+
+Options:
+  --features COL [...]    Feature columns (default: numeric columns except target/group/--exclude)
+  --constraint NAME       demographic_parity | equalized_odds (default: demographic_parity)
+  --eps FLOAT             Allowed |moment| violation (default: 0.01)
+  --max-iter INT          Game rounds (default: 50)
+  --output-col NAME       Decision column; probabilities go to NAME_prob (default: y_pred_eg)
 ```
 
 ### fairness-audit postprocess
