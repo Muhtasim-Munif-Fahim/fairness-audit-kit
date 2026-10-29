@@ -238,3 +238,22 @@ from fairness_audit_kit.individual import (
     consistency_score,
     render_individual_fairness_report,
 )
+
+from fairness_audit_kit.reductions import (
+    ExponentiatedGradient,
+    ExponentiatedGradientResult,
+    fit_exponentiated_gradient,
+    render_exponentiated_gradient_report,
+)
+
+__all__ += [
+    "IndividualFairnessResult",
+    "LipschitzViolation",
+    "compute_individual_fairness",
+    "consistency_score",
+    "render_individual_fairness_report",
+    "ExponentiatedGradient",
+    "ExponentiatedGradientResult",
+    "fit_exponentiated_gradient",
+    "render_exponentiated_gradient_report",
+]

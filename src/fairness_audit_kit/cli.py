@@ -452,6 +452,46 @@ def cmd_reject_option(args):
         print(f"Report saved to {args.report}")
 
 
+def cmd_reduce(args):
+    """Train a classifier under a fairness constraint (Agarwal et al. exponentiated gradient)."""
+    from fairness_audit_kit.reductions import ExponentiatedGradient, render_exponentiated_gradient_report
+
+    df = pd.read_csv(args.data)
+    for col in (args.target_col, args.group_col):
+        if col not in df.columns:
+            raise SystemExit(f"Column '{col}' not found in {args.data}")
+    if args.features:
+        missing = [c for c in args.features if c not in df.columns]
+        if missing:
+            raise SystemExit(f"Feature columns not found: {missing}")
+        features = list(args.features)
+    else:
+        skip = {args.target_col, args.group_col, args.output_col, args.output_col + "_prob", *args.exclude}
+        features = [c for c in df.columns if c not in skip and pd.api.types.is_numeric_dtype(df[c])]
+    if not features:
+        raise SystemExit("No feature columns to train on")
+    try:
+        eg = ExponentiatedGradient(
+            constraint=args.constraint, eps=args.eps, max_iter=args.max_iter
+        ).fit(df[features].values, df[args.target_col].values, df[args.group_col].values)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    result = eg.result_
+    out = df.copy()
+    out[args.output_col + "_prob"] = eg.predict_proba(df[features].values)
+    out[args.output_col] = eg.predict(df[features].values, random_state=args.seed)
+    out.to_csv(args.output, index=False)
+    if args.report:
+        with open(args.report, "w") as f:
+            f.write(render_exponentiated_gradient_report(result))
+    print(f"{result.constraint.replace('_', ' ')} (eps={result.eps:g}): "
+          f"{result.n_iter} iterations, {result.n_hypotheses} hypotheses"
+          + ("" if result.converged else " (not converged)"))
+    print(f"Error: {result.error_before:.4f} -> {result.error_after:.4f}")
+    print(f"Max violation: {result.violation_before:.4f} -> {result.violation_after:.4f}")
+    print(f"Decisions saved to {args.output}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="fairness-audit",
@@ -691,6 +731,24 @@ def main():
     ceo_parser.add_argument("--output", type=str, required=True, help="Output CSV path")
     ceo_parser.add_argument("--report", type=str, default=None, help="Optional Markdown report path")
     ceo_parser.set_defaults(func=cmd_calibrated_eq_odds)
+
+    red_parser = subparsers.add_parser(
+        "reduce",
+        help="Agarwal et al. exponentiated-gradient reduction (in-processing mitigation)",
+    )
+    red_parser.add_argument("--data", type=str, required=True, help="Training CSV with features, labels and groups")
+    red_parser.add_argument("--features", nargs="+", default=None, help="Feature columns (default: numeric non-excluded)")
+    red_parser.add_argument("--exclude", nargs="+", default=[], help="Columns to leave out of the features")
+    red_parser.add_argument("--target-col", type=str, default="target", help="Binary label column")
+    red_parser.add_argument("--group-col", type=str, default="sensitive_attr", help="Sensitive attribute column (never a feature)")
+    red_parser.add_argument("--constraint", choices=["demographic_parity", "equalized_odds"], default="demographic_parity")
+    red_parser.add_argument("--eps", type=float, default=0.01, help="Allowed moment violation (default 0.01)")
+    red_parser.add_argument("--max-iter", type=int, default=50)
+    red_parser.add_argument("--seed", type=int, default=0, help="Seed for the randomized decisions")
+    red_parser.add_argument("--output-col", type=str, default="y_pred_eg", help="Output decision column")
+    red_parser.add_argument("--output", type=str, required=True, help="Output CSV path")
+    red_parser.add_argument("--report", type=str, default=None, help="Optional Markdown report path")
+    red_parser.set_defaults(func=cmd_reduce)
 
     args = parser.parse_args()
     
