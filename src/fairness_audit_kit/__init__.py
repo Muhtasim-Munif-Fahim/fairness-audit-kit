@@ -257,3 +257,16 @@ __all__ += [
     "fit_exponentiated_gradient",
     "render_exponentiated_gradient_report",
 ]
+from fairness_audit_kit.massaging import (
+    MassagingResult,
+    compute_massaging,
+    fit_with_massaging,
+    render_massaging_report,
+)
+
+__all__ += [
+    "MassagingResult",
+    "compute_massaging",
+    "fit_with_massaging",
+    "render_massaging_report",
+]

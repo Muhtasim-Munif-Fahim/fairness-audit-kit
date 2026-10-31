@@ -683,3 +683,15 @@ python -m pytest tests -v
 ## License
 
 MIT License - see LICENSE file for details.
+
+## Massaging (label relabelling pre-processing)
+
+`compute_massaging(y, groups, scores)` implements Kamiran & Calders' *massaging*. Reweighing changes sample weights, while massaging relabels the smallest number of training examples that removes the base-rate gap between two groups. `scores` ranks the samples. The `M = round(disc * n_priv * n_unpriv / n)` highest-scored unprivileged negatives are promoted, and the `M` lowest-scored privileged positives are demoted. These are the borderline cases, so accuracy loss stays small, and the overall positive rate does not change.
+
+`fit_with_massaging(estimator, X, y, groups)` fits a ranker on `(X, y)` (logistic regression by default), massages the labels, and trains `estimator` on the result. `render_massaging_report(result)` produces a Markdown summary.
+
+```python
+from fairness_audit_kit import fit_with_massaging
+model, res = fit_with_massaging(LogisticRegression(), X, y, groups)
+print(res.n_changes, res.base_rate_gap_before, res.base_rate_gap_after)
+```
