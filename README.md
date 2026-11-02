@@ -695,3 +695,16 @@ from fairness_audit_kit import fit_with_massaging
 model, res = fit_with_massaging(LogisticRegression(), X, y, groups)
 print(res.n_changes, res.base_rate_gap_before, res.base_rate_gap_after)
 ```
+
+## Prejudice Remover (in-processing regularizer)
+
+`PrejudiceRemover(eta, C)` is Kamishima et al.'s (2012) *prejudice remover*: logistic regression (one weight vector per sensitive group by default, as in the paper) trained with an extra penalty `eta * PI`, where `PI = sum_i sum_y M(y|x_i,s_i) log(Pr^[y|s_i] / Pr^[y])` is `n` times the plug-in mutual information between the model's prediction and the sensitive attribute. `eta = 0` is plain L2 logistic regression; larger `eta` pushes the score towards independence from the group (demographic parity), even when the features contain proxies for it. The gradient is analytic (`dPI/dp_j = logit(Pr^[1|s_j]) - logit(Pr^[1])`), so L-BFGS fits quickly.
+
+`fit_prejudice_remover(X, y, groups, etas=...)` sweeps `eta` and reports accuracy, per-group positive rates, the demographic-parity gap and the normalized prejudice index `NPI = I(Y;S) / sqrt(H(Y) H(S))` (`normalized_prejudice_index`); `render_prejudice_remover_report` renders the trade-off as Markdown.
+
+```python
+from fairness_audit_kit import PrejudiceRemover, fit_prejudice_remover, render_prejudice_remover_report
+model = PrejudiceRemover(eta=10.0).fit(X_train, y_train, groups_train)
+y_hat = model.predict(X_test, groups_test)
+print(render_prejudice_remover_report(fit_prejudice_remover(X_train, y_train, groups_train, etas=(0, 5, 25, 100))))
+```
