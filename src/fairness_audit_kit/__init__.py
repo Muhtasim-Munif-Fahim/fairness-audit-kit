@@ -270,3 +270,19 @@ __all__ += [
     "fit_with_massaging",
     "render_massaging_report",
 ]
+
+from fairness_audit_kit.prejudice_remover import (
+    PrejudiceRemover,
+    PrejudiceRemoverResult,
+    fit_prejudice_remover,
+    normalized_prejudice_index,
+    render_prejudice_remover_report,
+)
+
+__all__ += [
+    "PrejudiceRemover",
+    "PrejudiceRemoverResult",
+    "fit_prejudice_remover",
+    "normalized_prejudice_index",
+    "render_prejudice_remover_report",
+]
