@@ -286,3 +286,25 @@ __all__ += [
     "normalized_prejudice_index",
     "render_prejudice_remover_report",
 ]
+
+from fairness_audit_kit.ranking import (
+    RankingFairnessResult,
+    compute_ranking_fairness,
+    group_exposure,
+    ndkl,
+    position_weights,
+    render_ranking_fairness_report,
+    rkl,
+    rnd,
+)
+
+__all__ += [
+    "RankingFairnessResult",
+    "compute_ranking_fairness",
+    "group_exposure",
+    "ndkl",
+    "position_weights",
+    "render_ranking_fairness_report",
+    "rkl",
+    "rnd",
+]
