@@ -708,3 +708,20 @@ model = PrejudiceRemover(eta=10.0).fit(X_train, y_train, groups_train)
 y_hat = model.predict(X_test, groups_test)
 print(render_prejudice_remover_report(fit_prejudice_remover(X_train, y_train, groups_train, etas=(0, 5, 25, 100))))
 ```
+
+## Ranking fairness (exposure, rND/rKL, NDKL)
+
+`fairness_audit_kit.ranking` audits a ranking given as the sequence of group labels in rank order (top first):
+
+```python
+from fairness_audit_kit import compute_ranking_fairness, render_ranking_fairness_report
+
+res = compute_ranking_fairness(groups_in_rank_order, relevance=scores, protected="female", step=10)
+print(res.exposure, res.exposure_ratio, res.disparate_treatment_ratio, res.rnd, res.rkl, res.ndkl)
+print(render_ranking_fairness_report(res))
+```
+
+- **Exposure parity** (Singh & Joachims 2018) is the mean position attention per group. Attention can be DCG `1/log2(1+r)`, reciprocal, or RBP `p^(r-1)`.
+- **Disparate treatment ratio** checks whether exposure is proportional to mean relevance (1.0 means it is).
+- **rND / rKL** (Yang & Stoyanovich 2017) compare the protected share in top-k prefixes with its overall share. They are normalised to [0, 1], where 1 is the most segregated ranking.
+- **NDKL** (Geyik et al. 2019) is the discounted KL divergence of every prefix's group mix from a target distribution (0 = matches everywhere).
