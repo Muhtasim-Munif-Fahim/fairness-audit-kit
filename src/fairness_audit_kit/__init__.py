@@ -29,6 +29,15 @@ from fairness_audit_kit.theil import (
     compute_theil_metrics,
 )
 
+
+from fairness_audit_kit.multi_calibration import (
+    MultiCalibrationCell,
+    MultiCalibrationResult,
+    compute_multi_calibration,
+    multi_accuracy,
+    render_multi_calibration_report,
+)
+
 from fairness_audit_kit.calibration import (
     ReliabilityBin,
     CalibrationResult,

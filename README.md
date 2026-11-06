@@ -680,6 +680,22 @@ _features |
 python -m pytest tests -v
 `
 
+
+## Multi-calibration / multi-accuracy audit
+
+Ordinary ECE can look fine while a sensitive group (or a group×score slice) is
+badly miscalibrated. `compute_multi_calibration` bins scores, splits each bin
+by group, and reports the worst cell gap plus per-group multi-accuracy
+`|E[y - score | g]|` (Hébert-Johnson et al. 2018; Kim et al. 2019):
+
+```python
+from fairness_audit_kit import compute_multi_calibration, render_multi_calibration_report
+
+res = compute_multi_calibration(y_true, y_scores, groups, n_bins=10, min_cell_size=30)
+res.multi_calibration_error, res.max_multi_accuracy, res.overall_ece
+print(render_multi_calibration_report(res))
+```
+
 ## License
 
 MIT License - see LICENSE file for details.
