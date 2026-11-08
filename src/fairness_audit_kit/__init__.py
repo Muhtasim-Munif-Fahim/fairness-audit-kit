@@ -317,3 +317,21 @@ __all__ += [
     "rkl",
     "rnd",
 ]
+
+from fairness_audit_kit.fairness_constraints import (
+    FairnessConstrainedClassifier,
+    FairnessConstraintResult,
+    boundary_covariance,
+    fit_fairness_constraints,
+    p_percent_rule,
+    render_fairness_constraints_report,
+)
+
+__all__ += [
+    "FairnessConstrainedClassifier",
+    "FairnessConstraintResult",
+    "boundary_covariance",
+    "fit_fairness_constraints",
+    "p_percent_rule",
+    "render_fairness_constraints_report",
+]
