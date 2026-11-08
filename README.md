@@ -725,6 +725,21 @@ y_hat = model.predict(X_test, groups_test)
 print(render_prejudice_remover_report(fit_prejudice_remover(X_train, y_train, groups_train, etas=(0, 5, 25, 100))))
 ```
 
+## Fairness constraints (decision-boundary covariance)
+
+`FairnessConstrainedClassifier` implements Zafar et al.'s (AISTATS 2017) *fairness constraints* for logistic regression. Equal positive rates is a non-convex constraint, so the method bounds a convex proxy instead: the covariance between group membership and the signed distance to the decision boundary, `Cov(z, theta^T x) = mean((z - z_bar) theta^T x)`. That proxy is linear in `theta`. Two or more groups are supported, with one constraint per group indicator.
+
+- `mode="fairness"` minimizes log-loss + L2 subject to `|Cov_g| <= c` (`c = 0` gives a group-uncorrelated boundary).
+- `mode="accuracy"` minimizes `sum_g Cov_g^2` subject to `loss <= (1 + gamma) * loss*`, so accuracy is traded for fairness only within a set budget.
+
+Both are solved with SLSQP using analytic gradients. The sensitive attribute is used only during training; `predict(X)` does not need it. `p_percent_rule` gives the paper's p%-rule (min ratio of positive rates; 0.8 = the "80% rule").
+
+```python
+from fairness_audit_kit import FairnessConstrainedClassifier, fit_fairness_constraints, render_fairness_constraints_report
+model = FairnessConstrainedClassifier(c=0.0).fit(X_train, y_train, groups_train)
+model.covariance_, model.predict(X_test)
+print(render_fairness_constraints_report(fit_fairness_constraints(X_train, y_train, groups_train, levels=(None, 0.1, 0.01, 0.0))))
+```
 ## Ranking fairness (exposure, rND/rKL, NDKL)
 
 `fairness_audit_kit.ranking` audits a ranking given as the sequence of group labels in rank order (top first):
