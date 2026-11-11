@@ -223,6 +223,20 @@ report = render_intersectional_report(
 
 Intersection labels are `{group_a}/{group_b}` (override with `separator=`). The worst intersection is the subgroup with the lowest positive prediction rate by default, or the lowest TPR when `worst_by="tpr"`.
 
+### Differential Fairness (ε-DF, Foulds et al.)
+
+ε-differential fairness bounds the log-ratio of *every* outcome probability between *every* pair of intersectional groups: `e^-ε ≤ P(y|s_i)/P(y|s_j) ≤ e^ε`. Probabilities use Dirichlet smoothing `(N_ys + α)/(N_s + |Y|α)` so tiny intersections do not explode. The result also reports ε for every subset of attributes, a bootstrap CI, and — given the labels — bias amplification `ε(model) − ε(data)`.
+
+```python
+from fairness_audit_kit import compute_differential_fairness, render_differential_fairness_report
+
+res = compute_differential_fairness(
+    y_pred, {"race": race, "gender": gender}, y_true=y_true, alpha=1.0, n_bootstrap=200, seed=0
+)
+res.epsilon, res.disparate_impact_ratio, res.worst_pair, res.subset_epsilons, res.bias_amplification
+print(render_differential_fairness_report(res))
+```
+
 ### Theil Index / Generalized Entropy
 
 Measure inequality of **benefit** (Speicher et al. / AIF360: `b_i = 1 + 1[y_hat=favorable] - 1[y=favorable]`) or **error** (0/1 misclassification) across individuals and groups. The index decomposes into a between-group term (each person is assigned their group's mean outcome) and a within-group residual. Default `alpha=1` is the Theil index; `alpha=2` is half the squared coefficient of variation.
