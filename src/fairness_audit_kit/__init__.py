@@ -124,6 +124,12 @@ from fairness_audit_kit.repair import (
     repair_disparate_impact,
 )
 
+from fairness_audit_kit.differential_fairness import (
+    DifferentialFairnessResult,
+    compute_differential_fairness,
+    render_differential_fairness_report,
+)
+
 from fairness_audit_kit.treatment_equality import (
     TreatmentEqualityResult,
     compute_treatment_equality,
@@ -220,6 +226,9 @@ __all__ = [
     "max_pairwise_ks",
     "repair_disparate_impact",
     "render_disparate_impact_repair_report",
+    "DifferentialFairnessResult",
+    "compute_differential_fairness",
+    "render_differential_fairness_report",
     "TreatmentEqualityResult",
     "compute_treatment_equality",
     "render_treatment_equality_report",
