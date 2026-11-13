@@ -770,3 +770,18 @@ print(render_ranking_fairness_report(res))
 - **Disparate treatment ratio** checks whether exposure is proportional to mean relevance (1.0 means it is).
 - **rND / rKL** (Yang & Stoyanovich 2017) compare the protected share in top-k prefixes with its overall share. They are normalised to [0, 1], where 1 is the most segregated ranking.
 - **NDKL** (Geyik et al. 2019) is the discounted KL divergence of every prefix's group mix from a target distribution (0 = matches everywhere).
+
+## Fair top-k ranking (FA*IR)
+
+`fairness_audit_kit.fair_topk` implements FA*IR (Zehlike et al., CIKM 2017). A top-k ranking satisfies *ranked group fairness* if every prefix `i` has at least `m(i)` protected items, where `m(i)` is the smallest count with `BinomCDF(m; i, p) > alpha_c`. The test is applied at all `k` prefixes, so `alpha_c` is adjusted down until the exact probability (computed by dynamic programming) that a fair Bernoulli(`p`) ranking fails somewhere is at most `alpha`.
+
+```python
+from fairness_audit_kit import fair_topk, fair_mtable, ranked_group_fairness_test
+
+res = fair_topk(scores, is_protected, k=50, p=0.4, alpha=0.1)
+res.ranking, res.mtable, res.alpha_adjusted, res.n_promoted, res.utility_ratio
+ranked_group_fairness_test(is_protected[res.colorblind_ranking], p=0.4, alpha=0.1).first_violation
+fair_mtable(10, 0.5, 0.1)   # [0 0 0 1 1 1 2 2 3 3]
+```
+
+`fair_topk` takes the best protected candidate whenever a prefix falls short of `m(i)`, and otherwise takes the best remaining candidate. Score order is kept within each group. `feasible=False` means there were too few protected candidates.

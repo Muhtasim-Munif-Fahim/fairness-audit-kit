@@ -305,6 +305,15 @@ __all__ += [
     "render_prejudice_remover_report",
 ]
 
+from fairness_audit_kit.fair_topk import (
+    FairTopKResult,
+    RankedGroupFairnessTest,
+    adjust_alpha,
+    fair_mtable,
+    fair_topk,
+    mtable_failure_probability,
+    ranked_group_fairness_test,
+)
 from fairness_audit_kit.ranking import (
     RankingFairnessResult,
     compute_ranking_fairness,
@@ -319,6 +328,13 @@ from fairness_audit_kit.ranking import (
 __all__ += [
     "RankingFairnessResult",
     "compute_ranking_fairness",
+    "FairTopKResult",
+    "RankedGroupFairnessTest",
+    "adjust_alpha",
+    "fair_mtable",
+    "fair_topk",
+    "mtable_failure_probability",
+    "ranked_group_fairness_test",
     "group_exposure",
     "ndkl",
     "position_weights",
